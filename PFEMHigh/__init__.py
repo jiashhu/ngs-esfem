@@ -24,6 +24,10 @@ from .BGN import (
     BGN_WM
 )
 
+from .Dziuk import (
+    Dziuk
+)
+
 from ._Applications.MCFFlow import (
     DumbbellLapVMCF,
     DumbbellLapVMCF_N_modified,
