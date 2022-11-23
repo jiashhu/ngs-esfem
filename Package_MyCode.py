@@ -360,15 +360,14 @@ class FO():
     def PVD_Generate(pvd_path,folder_path_set:list,pvd_name,T_end_set:list=[np.inf]):
         '''
             file strcture:
-            - pvd_path (single path)
-                - folder1
+            - pvd_path (single path for pvd file)
+                - folder1 (for series of vtk files)
                 - folder2
                 ...
 
             the subfolders contain data from different period, and folder_path_set collects all these paths.
-            
-            pvd_path: Base directory, contains folders with name in folder_path_set
-            Read a list of folders, choose vtus according to T_end, and collect in the pvd file. 
+
+            If there are several subfolders, choose vtus in each one according to T_end, and collect in the pvd file. 
             In the folder, time infomation is included in Rel_Mapping.npy (dictionary: vtu_name: time)
         '''
         assert len(T_end_set) == len(folder_path_set)
@@ -382,11 +381,13 @@ class FO():
         pvd_file_list_content = []
         for vtu_folder_rel_path, T_end in zip(folder_path_set,T_end_set):
             abs_path = os.path.join(pvd_path,vtu_folder_rel_path)
+            # to match time steps with vtk number, save this pair in pvd file
             try:
                 Map_Data = np.load(os.path.join(abs_path,'Rel_Mapping.npy'),allow_pickle=True).item()
                 time_set = np.array(list(Map_Data.values()))
                 vtu_name = list(Map_Data.keys())
             except:
+                # Arrange vtu files in alphabetical order by file name
                 print('No Mapping data!')
                 vtu_name = [fname.split('.')[0] for fname in FO.Get_File_List(abs_path) if fname.endswith('vtu')]
                 time_set = np.array(list(range(len(vtu_name))))
