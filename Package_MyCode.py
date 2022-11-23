@@ -1,10 +1,10 @@
 import os
-from PIL import Image
 import numpy as np
 import math
-import logging
 import re
 try:
+    import logging
+    from PIL import Image
     import matplotlib as mpl
     from line_profiler import LineProfiler
 except:
@@ -359,6 +359,14 @@ class FO():
 
     def PVD_Generate(pvd_path,folder_path_set:list,pvd_name,T_end_set:list=[np.inf]):
         '''
+            file strcture:
+            - pvd_path (single path)
+                - folder1
+                - folder2
+                ...
+
+            the subfolders contain data from different period, and folder_path_set collects all these paths.
+            
             pvd_path: Base directory, contains folders with name in folder_path_set
             Read a list of folders, choose vtus according to T_end, and collect in the pvd file. 
             In the folder, time infomation is included in Rel_Mapping.npy (dictionary: vtu_name: time)

@@ -46,9 +46,12 @@ class Dziuk():
         Vertices_Coords = Pos_Transformer(self.X_old, dim=self.dim)
         self.DMesh_Obj.UpdateCoords(Vertices_Coords)
         h = min(np.linalg.norm(self.DMesh_Obj.barvec,axis=1))
+        hmax = max(np.linalg.norm(self.DMesh_Obj.barvec,axis=1))
         hmean = np.mean(np.linalg.norm(self.DMesh_Obj.barvec,axis=1))
         if h_opt == 'min':
             dt = coef*h**2
+        elif h_opt == 'max':
+            dt = coef*hmax**2
         elif h_opt == 'mean':
             dt = coef*hmean**2
         print('{} :Using Get_Proper_dt, Now coef is {}, t is {}, min h is {}, dt is {}, scale is {}'.format(LogTime(),coef,self.t,h,format(dt,'0.3e'),self.scale))

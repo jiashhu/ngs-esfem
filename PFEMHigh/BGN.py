@@ -33,6 +33,7 @@ def myInnerProduct(v1,v2):
 class BGN():
     def __init__(self, mymesh, T = 1e-4, tau = 1e-4):
         self.mesh = mymesh
+        self.T_seg_begin = 0
         self.T, self.t, self.finalT = T, 0, 0
         self.dt = Parameter(tau)
         self.fes = H1(self.mesh,order=1)
@@ -115,8 +116,8 @@ class BGN():
     def PP_Pic(self,vtk_obj=None):
         pass
     
-    def PrintDuring(self):
-        if self.t > self.T*self.counter_print/5:
+    def PrintDuring(self,LoadT=0):
+        if self.t > LoadT+(self.T-LoadT)*(1+self.counter_print)/5:
             print('Completed {} per cent'.format(int(self.counter_print/5*100)))
             self.counter_print += 1
 
@@ -153,8 +154,9 @@ class BGN():
             self.Disp.vec.data = BaseVector(self.Disp.vec.FV().NumPy() + self.Solution.components[1].vec.FV().NumPy())
             self.X_old.vec.data = BaseVector(self.X_old.vec.FV().NumPy() + self.Solution.components[1].vec.FV().NumPy())
             self.PP_Pic(vtk_obj)
-            self.PrintDuring()
+            self.PrintDuring(LoadT=self.T_seg_begin)
             self.t += tauval/self.scale**2
+        self.T_seg_begin = self.T
 
     def SaveFunc(self,BaseDirPath):
         Case_Name = 'C_'+format(self.T,'0.3e').replace('.','_').replace('-','_')

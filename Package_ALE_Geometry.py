@@ -78,29 +78,9 @@ class Vtk_out:
             vtk.Do()
             self.index += 1
 
-class yxt_1d_out(Vtk_out):
-    def __init__(self, x_save_arr:np.ndarray, T_set_old, n_set, pathname, T_begin=0):
-        super().__init__(T_set_old, n_set, pathname, T_begin)
-        self.Data_List = []
-        self.t_List = []
-        self.x_ref = x_save_arr
-
-    def Output(self,tnow,function,command:str):
-        perform = False
-        if command == 'do':
-            perform = True
-        elif tnow >= self.Tsets[self.index]:
-            perform = True
-        if perform:
-            self.t_List.append(tnow)
-            self.Data_List.append(np.array([
-                function(x_) for x_ in self.x_ref
-            ]))
-            self.index += 1
-
-
-
-
+    def Generate_PVD(self,pvd_name):
+        # generate only one path
+        FO.PVD_Generate(pvd_path=self.pathname,folder_path_set=[''], pvd_name=pvd_name)
 class Vtk_out_BND(Vtk_out):
     def __init__(self, T_set, n_set, pathname, T_begin=0):
         super().__init__(T_set, n_set, pathname, T_begin)
@@ -123,6 +103,24 @@ class Vtk_out_BND(Vtk_out):
         return perform
 
 class Vtk_out_1d(Vtk_out):
+    '''
+        Save vtk file of 1d curve in plane (z=0) by coordinates
+
+        Example: 
+            # generate vtk output object
+            T     = [1]
+            n_vtk = [10]
+            VTU_Path = './vtkfile'
+            Coords2d0 = np.array([[np.cos(theta), np.sin(theta)] 
+                        for theta in np.linspace(0,2*np.pi,20)[:-1]])
+            vtk_Obj_1d = Vtk_out_1d(T,n_vtk,VTU_Path)
+            for t in np.linspace(0,1,20):
+                # radius changes from 2 to 1
+                Coords2d = (2-t)*Coords2d0
+                perform_res = vtk_Obj_1d.Output(Coords2d,[],tnow=t)
+            vtk_Obj_1d.Generate_PVD('test.pvd')
+    '''
+    
     def __init__(self, T, n, pathname, T_begin=0):
         super().__init__(T, n, pathname, T_begin)
     

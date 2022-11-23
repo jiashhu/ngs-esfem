@@ -84,9 +84,11 @@ class DiscreteMesh:
             ECoords = self.Coords.copy()
             for ii,ver_ind in enumerate(self.ElVerInd):
                 bar = ECoords[ver_ind[1:]] - ECoords[ver_ind[:-1]]
-                n3d = np.cross(bar[0,:],bar[1,:])
+                n3d = np.cross(bar[0,:]/np.linalg.norm(bar[0,:]),
+                            bar[1,:]/np.linalg.norm(bar[1,:]))
                 N_El_matrix[ii,:] = n3d/np.linalg.norm(n3d)
-                Area_matrix[ii,:] = np.linalg.norm(n3d)/2
+                Area_matrix[ii,:] = np.linalg.norm(n3d)/2\
+                    *np.linalg.norm(bar[0,:])*np.linalg.norm(bar[1,:])
             for ii,ver_ind in enumerate(self.EdVerInd):
                 bar = ECoords[ver_ind[1]] - ECoords[ver_ind[0]]
                 Leng_matrix[ii,:] = np.linalg.norm(bar)
