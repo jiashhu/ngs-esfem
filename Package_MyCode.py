@@ -13,6 +13,10 @@ import pytz
 import datetime
 from cycler import cycler
 
+class SliceableDict(dict):
+    def slice(self, *keys):
+        return {k: self[k] for k in keys}
+
 def Transformh(L_Total,Nset):
     h = [L_Total/Ni for Ni in Nset]
     return h
@@ -569,3 +573,13 @@ class Pic():
                 newImage.save(new_image_path)
                 im.close()
                 newImage.close()
+
+class Printer():
+    def __init__(self,n) -> None:
+        self.nprint = n
+        self.n_now = 0
+
+    def PrintDuring(self,told,T,T_begin=0):
+        if told>=T_begin+(T-T_begin)*self.n_now/self.nprint:
+            print("Finished {} per cent".format(self.n_now/self.nprint*100))
+            self.n_now += 1

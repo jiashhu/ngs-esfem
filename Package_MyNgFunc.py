@@ -5,6 +5,20 @@ import os
 from Package_MyCode import FO
 from ngsolve.comp import IntegrationRuleSpaceSurface
 
+def TensorProduct(u,v):
+    '''
+        tensorproduct of list objects. 
+
+        input: two lists, u,v
+        output: ngsolve matrix CF uxv with rows (dim u), columms (dim v)
+    '''
+    dimu = len(u)
+    dimv = len(v)
+    # for ii in range(dim):
+    #    for jj in range(dim): 的简写
+    tensor_ele = [u[ii]*v[jj] for ii in range(dimu) for jj in range(dimv)]
+    return CF(tuple(tensor_ele),dims=(dimu,dimv))
+    
 def GetIdCF(dim):
     if dim == 2:
         idCF = CF((x,y))
