@@ -7,6 +7,7 @@ import netgen.meshing as ngm
 from netgen.csg import Pnt,SplineCurve2d,CSGeometry,Revolution,Sphere
 from ngsolve import *
 from netgen.meshing import MeshingParameters
+from netgen.csg import unit_cube
 
 # 曲线的参数化的symbol
 phi = sym.Symbol('phi')
@@ -16,7 +17,8 @@ N = spv.ReferenceFrame('N')
 class DiscreteMesh:
     '''
         示例：
-            DMesh_Obj = DiscreteMesh(Coords,dim=2,adim=3,ElVerInd=ElVerInd,EdVerInd=EdVerInd)
+            ElVerInd, EdVerInd = Mesh_Info_Parse(mesh)
+            DMesh_Obj = DiscreteMesh(Vertices_Coords,dim=2,adim=3,ElVerInd=ElVerInd,EdVerInd=EdVerInd)
         输入：
             节点坐标Coords，网格dim，背景维度adim
             单元节点index矩阵ElVer，边节点index矩阵EdVer
@@ -374,52 +376,11 @@ class RBCSpline(Param1dSpline):
 class FlowerCurve(Param1dCurve):
     def __init__(self, T_max=2 * np.pi, theta_dis=None, a=0.65, b=7) -> None:
         Param = [(a*sym.sin(b*phi)+1)*sym.cos(phi), (a*sym.sin(b*phi)+1)*sym.sin(phi)]
-        super().__init__(Param = Param, T_max = T_max, theta_dis = theta_dis)
+        super().__init__(Param = Param, T_max = T_max, theta_dis = theta_dis)    
 
-def Mesh2dRotSpline(Spline_Obj:Param1dSpline,axis_opt,c_tag,maxh,order):
-    if axis_opt == 'x':
-        axis_0, axis_1 = Pnt(0,0,0), Pnt(1,0,0)
-    elif axis_opt == 'z':
-        axis_0, axis_1 = Pnt(0,0,0), Pnt(0,0,1)
-    spline = SplineCurve2d() # create a 2d spline
-    # define the control points -- anti clockwise
-    ctrbase, ctr = Spline_Obj.ctrbase, Spline_Obj.ctr
-    if c_tag == False:
-        # open spline on x-axis, rotate around x-axis
-        ctrbase[-1,-1] = 0
-        ctrbase[0,-1] = 0
-        n_ctr = len(ctr)
-    else:
-        # closed spline, number of ctr = number of ctrbase
-        n_ctr = len(ctr) + 1
-    n_spline = n_ctr
-    # collect pnts
-    pnts = []
-    for ii in range(len(ctrbase)):
-        pnts.append(tuple(ctrbase[ii]))
-        if ii < n_ctr:
-            pnts.append(tuple(ctr[ii]))
-    # collect splines
-    segs = []
-    for ii in range(n_spline):
-        ind0, ind1, ind2 = 2*ii, 2*ii+1, 2*ii+2
-        if ii >= len(ctrbase)-1:
-            ind2 = 0
-        segs.append([ind0,ind1,ind2])
-    # add the points and segments to the spline
-    for pnt in pnts:
-        spline.AddPoint (*pnt)
-    for seg in segs:
-        spline.AddSegment (*seg)
-    # revolve the spline
-    rev = Revolution(axis_0, axis_1, spline)
-    # create a geometry and add the revolved object
-    geo = CSGeometry()
-    geo.Add (rev.col([1,0,0]))
-    mesh = Mesh(geo.GenerateMesh(maxh = maxh, perfstepsend=ngm.MeshingStep.MESHSURFACE))
-    mesh.Curve(order)
-    return mesh
-    
+
+
+## Rotational 2d surface: curvature, Laplace curvature, normal and etc, GenerateMesh
 class Param2dRot():
     '''
         Rotational 2d surface by profile curve in x-z plane (f(phi), g(phi)).
@@ -440,7 +401,7 @@ class Param2dRot():
         if self.Rot_Axis == 'x':
             self.H_sym = -((dg*ddf-ddg*df)/(df**2+dg**2)**(3/2)+df/(g*sym.sqrt(df**2+dg**2)))
             self.H_np = sym.lambdify(phi, self.H_sym)
-            # metric (orthogonal)
+            # metric (orthogonal), diagnoal
             self.gij = [df**2+dg**2, g**2]
             self.invgij = [1/(df**2+dg**2), 1/g**2]
             self.detg = (df**2+dg**2)*g**2
@@ -450,22 +411,31 @@ class Param2dRot():
             self.H_np = sym.lambdify(phi, self.H_sym)
 
     def LapS_theta_indep(self,fexpr):
-        # surface Laplace of function independent of theta
+        # surface Laplace of function independent of theta - due to rotational symmetry
         Lapf = 1/sym.sqrt(self.detg)*(
             sym.sqrt(self.detg)*self.invgij[0]*fexpr.diff(phi)
         ).diff(phi)
         return Lapf
 
     def Generate_LapHn_func(self):
+        '''
+            Compute some intermediate results symbolically, pre-step for Get_Lap_H_N
+        '''
         self.LapH_func, self.Lapnhat1_func, self.Lapnhat2_func = [
             sym.lambdify(phi, self.LapS_theta_indep(fexpr)) 
             for fexpr in [self.H_sym, self.nhat_1, self.nhat_2]
         ]
         self.g22nhat2 = sym.lambdify(phi,self.invgij[1]*self.nhat_2)
         n_prim_square = (self.nhat_1.diff(phi))**2+(self.nhat_2.diff(phi))**2
-        self.A2_func  = sym.lambdify(phi, self.invgij[0]*n_prim_square + self.invgij[1]*self.nhat_2**2)
+        self.A2_func  = sym.lambdify(phi, self.invgij[0]*n_prim_square 
+                                    + self.invgij[1]*self.nhat_2**2)
     
     def Get_Lap_H_N(self,phi:np.ndarray, theta:np.ndarray):
+        '''
+            Computing pointwise ∆ H and ∆ n and 
+            
+            by transforming ∆ H and ∆ n symbolic expression to numpy functions.
+        '''
         n = len(phi)
         assert len(phi) == len(theta)
         LapH, Lapn = np.zeros((n,1)), np.zeros((n,3))
@@ -599,45 +569,40 @@ class Ellipsoid(Param2dRot):
     def __init__(self, a, b, eps, NS) -> None:
         Spline_Obj = EllipseSpline(a=2, b=1, eps=eps, N_Spline=NS)
         super().__init__(Spline_Obj, axis_opt='x', c_tag=False)
-        
-def Mesh2dDumbbell(maxh,order,a=0.6,b=0.4,N_Spline=7,eps=2e-7):
-    '''
-        Profile curve on the x-z plane, rotate around the x axis, 由于参数去除最后一个，NumSpline为奇数时对称
-    '''
-    T_max = np.pi
-    c_tag = False
-    Spline_Obj = DumbbellSpline(a=a,b=b,N_Spline=N_Spline,T_max=T_max,eps=eps,c_tag=c_tag)
-    mesh = Mesh2dRotSpline(Spline_Obj,axis_opt='x',c_tag=False,maxh=maxh,order=order)
-    return mesh, Spline_Obj
 
-def HNCoef(Par_v:spv.vector.Vector, phi, frame, LapHn=False):
+class RBC_Rot_Obj(Param2dRot):
     '''
-        计算平面曲线的曲率：X=(f,g)
-        H = (f' * g'' - g' * f'')/(f'^2+g'^2)^(3/2)
-        圆周为 1
-        返回symbolic的标量函数
+        MyRBC_Obj = RBC_Obj(a=0.4,b=1,c=2,N_Spline=9)
+        MyRBC_Obj.Generate_Mesh(maxh=0.2,order=1)
+        mesh = RBC_Obj.mesh
     '''
-    dv = Par_v.diff(phi,frame)
-    ddv = dv.diff(phi,frame)
-    # rphi rotate clockwise 90 to normal
-    normalv = dv^frame.z
-    # normalize the normal vector
-    normalv = normalv.normalize()
-    ## Generate Curvature
-    H = (dv.to_matrix(frame)[0]*ddv.to_matrix(frame)[1]-dv.to_matrix(frame)[1]*ddv.to_matrix(frame)[0])/(dv.to_matrix(frame)[0]**2+dv.to_matrix(frame)[1]**2)**(3/2)
-    nx_S = normalv.dot(frame.x)
-    ny_S = normalv.dot(frame.y)
-    if LapHn == True:
-        s = sym.sqrt(dv.dot(dv))
-        LapH_val = (H.diff(phi)/s).diff(phi)/s
-        # z = Lap n + |A|^2 n, |A|^2 = H^2
-        zx_val = ((nx_S.diff(phi)/s).diff(phi)/s) + H**2*nx_S
-        zy_val = ((ny_S.diff(phi)/s).diff(phi)/s) + H**2*ny_S
-    else:
-        LapH_val = None
-        zx_val, zy_val = None, None
-    return H, nx_S, ny_S, LapH_val, zx_val, zy_val
+    def __init__(self, a, b, c, N_Spline) -> None:
+        Profile_Obj = RBCSpline(a=a,b=b,c=c,N_Spline=N_Spline,T_min=-np.pi/2,T_max=np.pi/2,eps=1e-7,c_tag=False)
+        super().__init__(Profile_Obj, axis_opt='x', c_tag=False)
 
+class Dumbbell_Rot_Obj(Param2dRot):
+    def __init__(self, Spline_Obj: Param1dSpline, axis_opt, c_tag) -> None:
+        super().__init__(Spline_Obj, axis_opt, c_tag)
+
+## other types of 2d surface mesh
+class CubicSurface():
+    def __init__(self) -> None:
+        pass
+
+    def Generate_Mesh(self,maxh):
+        self.mesh=Mesh(unit_cube.GenerateMesh(maxh=maxh, optsteps2d=3, perfstepsend=ngm.MeshingStep.MESHSURFACE))
+        ElVerInd, EdVerInd = Mesh_Info_Parse(self.mesh)
+        Vertices_Coords = np.array([v.point for v in self.mesh.vertices])
+        self.DMesh_Obj = DiscreteMesh(Vertices_Coords,dim=2,adim=3,ElVerInd=ElVerInd,EdVerInd=EdVerInd)
+
+class AngenentTorus_Rot_Obj(Param2dRot):
+    '''
+        Not prepared.
+    '''
+    def __init__(self, Spline_Obj: Param1dSpline, axis_opt, c_tag) -> None:
+        super().__init__(Spline_Obj, axis_opt, c_tag)
+
+## 1 dimensional curve mesh - first order
 class FlowerCurveMesh:
     def __init__(self, box, nnode, dt, symm, a=0.65, b=7):
         self.box = box
@@ -810,7 +775,34 @@ def MeshSphere(maxh,R=2,order=1,maxh_Out=0.4):
     mymesh = Mesh(mesh)
     mymesh.Curve(order)
     return mymesh
-## 暂时无用的程序
+
+def HNCoef(Par_v:spv.vector.Vector, phi, frame, LapHn=False):
+    '''
+        计算平面曲线的曲率：X=(f,g)
+        H = (f' * g'' - g' * f'')/(f'^2+g'^2)^(3/2)
+        圆周为 1
+        返回symbolic的标量函数
+    '''
+    dv = Par_v.diff(phi,frame)
+    ddv = dv.diff(phi,frame)
+    # rphi rotate clockwise 90 to normal
+    normalv = dv^frame.z
+    # normalize the normal vector
+    normalv = normalv.normalize()
+    ## Generate Curvature
+    H = (dv.to_matrix(frame)[0]*ddv.to_matrix(frame)[1]-dv.to_matrix(frame)[1]*ddv.to_matrix(frame)[0])/(dv.to_matrix(frame)[0]**2+dv.to_matrix(frame)[1]**2)**(3/2)
+    nx_S = normalv.dot(frame.x)
+    ny_S = normalv.dot(frame.y)
+    if LapHn == True:
+        s = sym.sqrt(dv.dot(dv))
+        LapH_val = (H.diff(phi)/s).diff(phi)/s
+        # z = Lap n + |A|^2 n, |A|^2 = H^2
+        zx_val = ((nx_S.diff(phi)/s).diff(phi)/s) + H**2*nx_S
+        zy_val = ((ny_S.diff(phi)/s).diff(phi)/s) + H**2*ny_S
+    else:
+        LapH_val = None
+        zx_val, zy_val = None, None
+    return H, nx_S, ny_S, LapH_val, zx_val, zy_val
 
 class D1_FlowerCurve(Param1dCurve):
     '''
@@ -953,13 +945,3 @@ class ReParam_BarMod:
         for i,F in enumerate(self.Ftot):
             nvec = self.DMesh.WN_Ver_matrix[i]
             self.Fvis[i] = F # -(F*nvec).sum()*nvec
-
-class RBC_Rot_Obj(Param2dRot):
-    def __init__(self, a, b, c, N_Spline) -> None:
-        Profile_Obj = RBCSpline(a=a,b=b,c=c,N_Spline=N_Spline,T_min=-np.pi/2,T_max=np.pi/2,eps=1e-7,c_tag=False)
-        super().__init__(Profile_Obj, axis_opt='x', c_tag=False)
-
-# MyRBC_Obj = RBC_Obj(a=0.4,b=1,c=2,N_Spline=9)
-# MyRBC_Obj.Generate_Mesh(maxh=0.2,order=1)
-# mesh = RBC_Obj.mesh
-# print('good')

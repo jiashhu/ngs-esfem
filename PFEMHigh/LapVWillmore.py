@@ -183,10 +183,56 @@ class LapVWillMore():
         Rhs += Q*Trace(grad(nut).Trace())*ds - Q*self.Hold*InnerProduct(self.nuold,nut)*ds
         Rhs += (InnerProduct(A,A)*InnerProduct(self.nuold,zt))*ds
         self.rhs = Rhs
-        
-    def PP_Pic(self,vtk_obj:Vtk_out_BND=None):
+
+    def WeakWillmore_PreFinal(self,SD_opt=False):
+        ## Set Curvature
+        kappa , H , V , z, nu, v = self.fesMix.TrialFunction()
+        kappat, Ht, Vt, zt, nut, vt= self.fesMix.TestFunction()
+
+        ## Weingarten Map
+        A0 = grad(self.nuold).Trace()
+        A = 1/2*(A0.trans+A0)
+        if SD_opt:
+            Q = 0
+        else:
+            Q = -1/2*self.Hold**3+InnerProduct(A,A)*self.Hold
+
+        n_unified = self.nuold
+        Lhs = BilinearForm(self.fesMix,symmetric=False)
+        Lhs += (InnerProduct(v,n_unified)*kappat)*ds-V*kappat*ds
+        Lhs += (1/self.dt*H*Ht - InnerProduct(grad(V).Trace(),grad(Ht).Trace()))*ds
+        Lhs += (V*Vt + InnerProduct(grad(H).Trace(),grad(Vt).Trace()))*ds
+        Lhs += (InnerProduct(z,zt) + InnerProduct(grad(nu).Trace(),grad(zt).Trace()))*ds
+        Lhs += 1/self.dt*InnerProduct(nu,nut)*ds - InnerProduct(grad(z).Trace(),grad(nut).Trace())*ds
+        Lhs += (kappa*InnerProduct(n_unified,vt))*ds + InnerProduct(grad(v).Trace(),grad(vt).Trace())*ds
+        # implicit treatment of z and V
+        Lhs += -self.Hold*InnerProduct(A*z,nut)*ds + InnerProduct(A*z,A*nut)*ds
+        Lhs += -InnerProduct(grad(nu).Trace()*self.vold,nut)*ds
+        Lhs += -InnerProduct(self.vold,grad(H).Trace())*Ht*ds + InnerProduct(A,A)*V*Ht*ds
+        # Lhs += -(InnerProduct(grad(H).Trace(),grad(H).Trace())*InnerProduct(nu,nut))*ds 
+        self.lhs = Lhs
+
+        # 计算需要对Hold,nuold设定初值
+        Rhs = LinearForm(self.fesMix)
+        Rhs += Q*Vt*ds
+        Rhs += 1/self.dt*self.Hold*Ht*ds 
+        Rhs += 1/self.dt*InnerProduct(n_unified,nut)*ds
+        Rhs += 2*InnerProduct(grad(nut).Trace()*(A*grad(self.Hold).Trace()), n_unified)*ds
+        Rhs += (InnerProduct(grad(self.Hold).Trace(),grad(self.Hold).Trace())*InnerProduct(self.nuold,nut))*ds + InnerProduct(A*grad(self.Hold).Trace(),A*nut)*ds
+        Rhs += Q*Trace(grad(nut).Trace())*ds - Q*self.Hold*InnerProduct(n_unified,nut)*ds
+        Rhs += (InnerProduct(A,A)*InnerProduct(n_unified,zt))*ds
+        self.rhs = Rhs
+
+    def PP_Pic(self,vtk_Obj_bnd:Vtk_out_BND=None):
         # Post Process: Saving Picture
-        pass
+        # 后处理： 保存图像
+        perform_res = vtk_Obj_bnd.Output(self.mesh,function=[self.Hold,self.nuold],names=['H','n'],tnow=self.t)
+        # 后处理： 计算网格质量，利用self.mesh的拓扑关系
+        if perform_res:
+            self.VCoord.Interpolate(CF((x,y,z)),definedon=self.mesh.Boundaries(".*"))
+            self.DMesh_Obj.UpdateCoords(Pos_Transformer(self.VCoord,dim=3))
+            Q_Area, Q_Leng = self.DMesh_Obj.MeshQuality()
+            self.Mesh_Quality.append([Q_Area,Q_Leng,self.t])
 
     def Solving(self, vtk_obj:Vtk_out_BND=None):
         while self.t<self.T:

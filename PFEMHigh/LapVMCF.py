@@ -266,7 +266,7 @@ class LapVDNMCF_v2():
         scale = 1/diam
         return scale
     
-    def Get_Proper_dt(self,coef=1):
+    def Get_Proper_dt(self,coef=1,mint=None):
         # order h**2, independent of scale
         Vertices_Coords = Pos_Transformer(self.Disp, dim=self.dim) + Pos_Transformer(self.BaseX, dim=self.dim)
         self.DMesh_Obj.UpdateCoords(Vertices_Coords)
@@ -274,6 +274,11 @@ class LapVDNMCF_v2():
         dt = coef*h**2
         log_str = '{} :Using Get_Proper_dt, Now coef is {}, t is {}, min h is {}, dt is {}, scale is {}'
         print(log_str.format(LogTime(),coef,self.t,h,format(dt,'0.3e'),self.scale))
+        if mint is not None:
+            dt = mint
+        if dt < 1e-12:
+            # when dt is too small, jump out of code
+            err = 1/0
         return dt
 
     def Mesh_Info_Parse(self):
@@ -332,3 +337,59 @@ class LapVDNMCF_v2():
         n_mat = Pos_Transformer(self.nuold,dim=3)
         unit_n_mat = n_mat/(np.linalg.norm(n_mat,axis=1)[:,None])
         self.nuold.vec.data = BaseVector(unit_n_mat.flatten('F'))
+
+
+class KLLMCF(LapVDNMCF_v2):
+    def __init__(self, mymesh, T=0.0001, dt=0.0001, order=1, BDForder=1, T_begin=0, scale=1):
+        super().__init__(mymesh, T, dt, order, BDForder, T_begin, scale)
+        ##              H           nu           v
+        self.fesMix = self.fes * self.fesV * self.fesV
+        self.gfu, self.gfuold = GridFunction(self.fesMix), GridFunction(self.fesMix) 
+        self.H, self.normal, self.velocity = self.gfu.components
+        self.Hold, self.nuold, self.vold = self.gfuold.components
+
+    def LapvSet(self):
+        '''
+            Solving v from Ritz projection of -Hn
+        '''
+        v, vt = self.fesV.TnT()
+        v_lhs = BilinearForm(self.fesV, symmetric=True)
+        v_lhs += (InnerProduct(grad(v).Trace(),grad(vt).Trace())
+                + InnerProduct(v,vt))*ds
+        v_rhs = LinearForm(self.fesV)
+        v_rhs += -(InnerProduct(grad(self.nuold).Trace().trans,grad(vt).Trace())*self.Hold+
+                InnerProduct(self.nuold,grad(vt).Trace()*grad(self.Hold).Trace())+
+                InnerProduct(self.nuold,vt)*self.Hold)*ds
+        gfu = GridFunction(self.fesV)
+        gfu.vec.data = v_lhs.Assemble().mat.Inverse(inverse="pardiso")*(v_rhs.Assemble().vec)
+        self.vold.vec.data = gfu.vec
+
+    def WeakMCF(self):
+        ## Set Curvature
+        H , nu, v = self.fesMix.TrialFunction()
+        Ht, nut, vt= self.fesMix.TestFunction()
+        
+        ## Weingarten Map A = grad n
+        A = grad(self.nuold).Trace()
+        A = (A.trans+A)/2
+        # update self.vold, self.nuold, self.Hold
+        Lhs = BilinearForm(self.fesMix,symmetric=False)
+        # weak for Ritz projection of v from Hn
+        Lhs += (InnerProduct(grad(v).Trace(),grad(vt).Trace())
+                + InnerProduct(v,vt))*ds
+        # weak for evolution equations for n and H
+        Lhs += 1/self.dt*InnerProduct(nu,nut)*ds + InnerProduct(grad(nu).Trace(),grad(nut).Trace())*ds
+        Lhs += 1/self.dt*H*Ht*ds + InnerProduct(grad(H).Trace(),grad(Ht).Trace())*ds
+        self.lhs = Lhs
+
+        Rhs = LinearForm(self.fesMix)
+        # rhs of weak for Ritz projection of v from Hn 
+        # \sg Hn = n x \sg H + H \sg n
+        Rhs += -(InnerProduct(grad(self.nuold).Trace().trans,grad(vt).Trace())*self.Hold+
+                InnerProduct(self.nuold,grad(vt).Trace()*grad(self.Hold).Trace())+
+                InnerProduct(self.nuold,vt)*self.Hold)*ds
+        Rhs += 1/self.dt*InnerProduct(self.nuold,nut)*ds
+        Rhs += InnerProduct(A,A)*InnerProduct(self.nuold,nut)*ds
+        Rhs += 1/self.dt*self.Hold*Ht*ds
+        Rhs += InnerProduct(A,A)*self.Hold*Ht*ds
+        self.rhs = Rhs

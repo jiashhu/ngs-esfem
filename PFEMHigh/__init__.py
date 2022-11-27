@@ -10,7 +10,8 @@
         重写ErrL2H1方法：这部分似乎可以写成ESFEM的类方法，然后在每个example中给出精确解的表达式
 '''
 from .LapVMCF import (
-    LapVDNMCF_v2
+    LapVDNMCF_v2,
+    KLLMCF
 )
 
 from .LapVWillmore import (
@@ -41,7 +42,8 @@ from ._Applications.MCFFlow import (
     DumbbellLapVMCF_v_0604_impv,
     DumbbellLapVMCF_v_0605,
     DumbbellLapVMCF_v_0607,
-    LapVMCF_v_0605
+    LapVMCF_v_0605,
+    DumbbellKLLMCF
 )
 
 from ._Applications.WMFlow import (
@@ -55,10 +57,12 @@ from ._Applications.WMFlow import (
     FlowerLapVSD_v_0601,
     FlowerLapVSD_v_0602,
     RBCLapVWM_ImplicitVz_v_0602,
-    FlowerLapVSD_v_0603
+    FlowerLapVSD_v_0603,
+    CubicWM
 )
 
 __all__ = [
+    'DumbbellKLLMCF',
     'DumbbellLapVMCF',
     'DumbbellLapVMCF_N_modified',
     'Dumbbell_BGN_MCF',
@@ -82,5 +86,6 @@ __all__ = [
     'DumbbellLapVMCF_v_0604_impv',
     'DumbbellLapVMCF_v_0605',
     'DumbbellLapVMCF_v_0607',
-    'LapVMCF_v_0605'
+    'LapVMCF_v_0605',
+    'CubicWM'
 ]

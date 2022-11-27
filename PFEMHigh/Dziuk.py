@@ -1,7 +1,7 @@
 from ngsolve import *
 from Package_MyNgFunc import GetIdCF
 from Package_Geometry_Obj import Mesh_Info_Parse, DiscreteMesh
-from Package_MyNgFunc import Pos_Transformer
+from Package_MyNgFunc import Pos_Transformer, NgMFSave
 import numpy as np
 from Package_MyCode import LogTime
 import os
@@ -55,6 +55,8 @@ class Dziuk():
         elif h_opt == 'mean':
             dt = coef*hmean**2
         print('{} :Using Get_Proper_dt, Now coef is {}, t is {}, min h is {}, dt is {}, scale is {}'.format(LogTime(),coef,self.t,h,format(dt,'0.3e'),self.scale))
+        if dt<1e-10:
+            err = 1/0
         return dt
 
     def WeakMCF(self):
@@ -98,3 +100,22 @@ class Dziuk():
             self.PP_Pic(vtk_obj)
             self.PrintDuring()
             self.t += tauval
+
+    # Dziuk starts with only position, then save deformation and position
+    def SaveFunc(self,BaseDirPath):
+        Case_Name = 'C_'+format(self.T,'0.3e').replace('.','_').replace('-','_')
+        flist = [self.Disp, self.X_old]
+        fnlist = ['Disp', 'Position']
+        t_scale_dict = {'t': self.t, 'scale': self.scale}
+        NgMFSave(CaseName=Case_Name, BaseDirPath=BaseDirPath, mesh=self.mesh, funclist=flist, func_name_list=fnlist, data_dict=t_scale_dict)
+        print('Now T={}, Save Functions in {}'.format(self.T,Case_Name))
+
+    def IniBySaveDat(self,SavePath):
+        '''
+            Set Disp, t, scale, Position by Saved Data
+        '''
+        info = np.load(os.path.join(SavePath,'info.npy'),allow_pickle=True).item()
+        self.t, self.scale = [info[ii] for ii in ['t','scale']]
+        self.Disp.Load(os.path.join(SavePath,'Disp'))
+        self.X_old.Load(os.path.join(SavePath,'Position'))
+        self.mesh.SetDeformation(self.Disp)

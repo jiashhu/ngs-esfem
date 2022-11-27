@@ -1,4 +1,4 @@
-from ..LapVMCF import LapVDNMCF_v2
+from ..LapVMCF import LapVDNMCF_v2, KLLMCF
 from ngsolve import *
 from Package_Geometry_Obj import Param2dRot
 from Package_MyNgFunc import Pos_Transformer
@@ -18,6 +18,27 @@ class DumbbellLapVMCF(LapVDNMCF_v2):
         self.Compu_HN_ByDisPos(opt=self.Reset_opt)
         # 后处理： 保存图像
         perform_res = vtk_Obj_bnd.Output(self.mesh,[self.H_X,self.Hold,self.err_H_0,self.n_Norm,self.vTNorm,self.n_err],tnow=self.t,names=['BGN','Hold','eH2_old','nNorm','vTNorm','en2_old'])
+        # 后处理： 计算网格质量，利用self.mesh的拓扑关系
+        if perform_res:
+            self.VCoord.Interpolate(CF((x,y,z)),definedon=self.mesh.Boundaries(".*"))
+            self.DMesh_Obj.UpdateCoords(Pos_Transformer(self.VCoord,dim=3))
+            Q_Area, Q_Leng = self.DMesh_Obj.MeshQuality()
+            self.Area_set.append([self.DMesh_Obj.Area,self.t,self.scale])
+            self.Mesh_Quality.append([Q_Area,Q_Leng,self.t])
+
+class DumbbellKLLMCF(KLLMCF):
+    def __init__(self, mymesh, Geo_Rot_Obj:Param2dRot, T=0.0001, dt=0.0001, order=1, BDForder=1, reset_opt='Rel'):
+        super().__init__(mymesh, T, dt, order, BDForder)
+        self.Dumbbell2d = Geo_Rot_Obj
+        self.Reset_opt = reset_opt
+        print('Reset_opt is {}'.format(self.Reset_opt))
+        # mean curvature of the rotational geometry
+        self.H_np = self.Dumbbell2d.H_np
+
+    def PP_Pic(self,vtk_Obj_bnd:Vtk_out_BND=None):
+        self.Compu_HN_ByDisPos(opt=self.Reset_opt)
+        # 后处理： 保存图像
+        perform_res = vtk_Obj_bnd.Output(self.mesh,[],tnow=self.t)
         # 后处理： 计算网格质量，利用self.mesh的拓扑关系
         if perform_res:
             self.VCoord.Interpolate(CF((x,y,z)),definedon=self.mesh.Boundaries(".*"))
