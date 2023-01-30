@@ -124,6 +124,7 @@ class Vtk_out_1d(Vtk_out):
     
     def __init__(self, T, n, pathname, T_begin=0):
         super().__init__(T, n, pathname, T_begin)
+        self.VertsCoords = {}
     
     def Output(self, vertices, pData_dict=None, tnow=None):
         '''
@@ -165,6 +166,11 @@ class Vtk_out_1d(Vtk_out):
             perform = True
         return perform
         
+    def LineSave(self, vertices, tnow=None):
+        if self.index<len(self.Tsets) and (tnow is None or tnow >= self.Tsets[self.index]):
+            self.VertsCoords[tnow] = (vertices)
+            self.index += 1
+
 class SplineSeg3():
     '''
         输入三个控制点的NURBF三次样条，特定的weight使得它可以表示ellipic曲线

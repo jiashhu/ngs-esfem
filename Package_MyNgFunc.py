@@ -27,11 +27,15 @@ def GetIdCF(dim):
     return idCF
 
 class SurfacehInterp():
+    '''
+        High order Lagrangian interpolation, by interpolation on Gaussian quadrature nodes of 1 order higher and L2 projection back
+
+    '''
     def __init__(self,mesh,order) -> None:
         self.order = order
         self.mesh = mesh
         self.dim = self.mesh.dim
-        self.fesir = IntegrationRuleSpaceSurface(self.mesh, order=self.order+1, definedon=self.mesh.Boundaries('.*'))
+        self.fesir = IntegrationRuleSpaceSurface(self.mesh, order=self.order, definedon=self.mesh.Boundaries('.*'))
         self.irs = self.fesir.GetIntegrationRules()
         self.fes = H1(self.mesh,order=self.order)
         self.fesV = VectorH1(self.mesh,order=self.order)
@@ -41,21 +45,30 @@ class SurfacehInterp():
         massV = BilinearForm(InnerProduct(self.L2uV,self.L2vV)*ds).Assemble().mat
         self.invmass = mass.Inverse(inverse="sparsecholesky")
         self.invmassV = massV.Inverse(inverse="sparsecholesky")
+        RitzV = BilinearForm(InnerProduct(self.L2uV,self.L2vV)*ds
+                            +InnerProduct(grad(self.L2uV).Trace(),grad(self.L2vV).Trace())*ds).Assemble().mat
+        self.invRitzV = RitzV.Inverse(inverse="sparsecholesky")
         self.fesirV = self.fesir**self.dim
         self.idCF = GetIdCF(self.dim)
         self.rhs, self.rhsV = None, None
 
     def GetCoordsQuad(self):
+        '''
+            Get values of the identity(position) on quadrature nodes
+        '''
         return self.GetValuesQuad(self.idCF)
 
     def GetValuesQuad(self,CF):
+        '''
+            Get values of CF on quadrature nodes
+        '''
         ndim = CF.dim
         CF_values_np = np.zeros((self.fesir.ndof,ndim))
         Interp_fun = GridFunction(self.fesir)
         for ii in range(ndim):
             # for 1d CF, CF[0] is right
             Interp_fun.Interpolate(CF[ii],self.mesh.Boundaries('.*')) 
-            CF_values_np[:,ii] = Interp_fun.vec.FV().NumPy()
+            CF_values_np[:,ii] = Interp_fun.vec.FV().NumPy().copy()
         return CF_values_np
 
     def Return2L2Byrhs(self,L2Func):
@@ -70,6 +83,8 @@ class SurfacehInterp():
     def Return2L2(self,vec):
         '''
             vec: Interpolated values at quadrature nodes
+            
+            return: GridFunction on fes
         ''' 
         IntFunc = GridFunction(self.fesir)
         IntFunc.vec.data = BaseVector(vec)
@@ -77,7 +92,29 @@ class SurfacehInterp():
         rhs     = LinearForm(IntFunc*self.L2v*ds(intrules=self.irs))
         rhs.Assemble()
         L2Func.vec.data = self.invmass * rhs.vec
-        return L2Func
+        return L2Func.vec.FV().NumPy().copy()
+
+    def ReturnByRitzV(self,u,Du):
+        '''
+            u: CF function
+        '''
+        L2Func = GridFunction(self.fesV)
+        rhs  = LinearForm(self.fesV)
+        rhs += InnerProduct(u,self.L2vV)*ds + InnerProduct(Du,grad(self.L2vV).Trace())*ds
+        rhs.Assemble()
+        L2Func.vec.data = self.invRitzV * rhs.vec
+        return L2Func.vec.FV().NumPy().copy()
+    
+    def ReturnByL2(self,u):
+        '''
+            u: CF function
+        '''
+        L2Func = GridFunction(self.fes)
+        rhs  = LinearForm(self.fes)
+        rhs += InnerProduct(u,self.L2v)*ds
+        rhs.Assemble()
+        L2Func.vec.data = self.invmass * rhs.vec
+        return L2Func.vec.FV().NumPy().copy()
 
 def NgMFSave(CaseName,BaseDirPath,mesh,funclist:list,func_name_list:list,data_dict:dict):
     '''

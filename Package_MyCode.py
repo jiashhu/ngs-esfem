@@ -3,15 +3,15 @@ import numpy as np
 import math
 import re
 try:
+    import pytz
+    from cycler import cycler
     import logging
     from PIL import Image
     import matplotlib as mpl
     from line_profiler import LineProfiler
 except:
     pass
-import pytz
 import datetime
-from cycler import cycler
 
 class SliceableDict(dict):
     def slice(self, *keys):
@@ -575,11 +575,15 @@ class Pic():
                 newImage.close()
 
 class Printer():
+    '''
+        myPrinter = Printer(10)
+        myPrinter.PrintDuring(told,T,T_begin=0) 
+    '''
     def __init__(self,n) -> None:
         self.nprint = n
         self.n_now = 0
 
     def PrintDuring(self,told,T,T_begin=0):
         if told>=T_begin+(T-T_begin)*self.n_now/self.nprint:
-            print("Finished {} per cent".format(self.n_now/self.nprint*100))
+            print("{}-Finished {} per cent".format(LogTime(),self.n_now/self.nprint*100))
             self.n_now += 1
