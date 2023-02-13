@@ -8,7 +8,8 @@ from netgen.csg import Pnt,SplineCurve2d,CSGeometry,Revolution,Sphere
 from ngsolve import *
 from netgen.meshing import MeshingParameters
 from Package_Geometry_Obj import *
-from SM_util import Param1dSpline, phi, N
+from .SM_util import Param1dSpline, Param1dCurve, phi, N
+from .DM_util import DiscreteMesh
 
 def Mesh2dRotSpline(Spline_Obj:Param1dSpline,axis_opt,c_tag,maxh,order):
     if axis_opt == 'x':
@@ -53,6 +54,17 @@ def Mesh2dRotSpline(Spline_Obj:Param1dSpline,axis_opt,c_tag,maxh,order):
     mesh = Mesh(geo.GenerateMesh(maxh = maxh, perfstepsend=ngm.MeshingStep.MESHSURFACE))
     mesh.Curve(order)
     return mesh
+    
+def MeshSphere(maxh,R=2,order=1,maxh_Out=0.4):
+    sphere = Sphere(Pnt(0,0,0),R)
+    sphere.bc("Outer").maxh(maxh_Out)
+    dom = sphere
+    geo = CSGeometry()
+    geo.Add(dom)
+    mesh = geo.GenerateMesh(maxh = maxh,optsteps2d=3, perfstepsend=ngm.MeshingStep.MESHSURFACE)
+    mymesh = Mesh(mesh)
+    mymesh.Curve(order)
+    return mymesh
     
 class Param2dRot():
     '''
@@ -390,16 +402,6 @@ def Mesh_Info_Parse(mesh):
         EdVerInd.append([v.nr for v in ed.vertices])
     return np.array(ElVerInd), np.array(EdVerInd)
 
-def MeshSphere(maxh,R=2,order=1,maxh_Out=0.4):
-    sphere = Sphere(Pnt(0,0,0),R)
-    sphere.bc("Outer").maxh(maxh_Out)
-    dom = sphere
-    geo = CSGeometry()
-    geo.Add(dom)
-    mesh = geo.GenerateMesh(maxh = maxh,optsteps2d=3, perfstepsend=ngm.MeshingStep.MESHSURFACE)
-    mymesh = Mesh(mesh)
-    mymesh.Curve(order)
-    return mymesh
 ## 暂时无用的程序
 
 class D1_FlowerCurve(Param1dCurve):

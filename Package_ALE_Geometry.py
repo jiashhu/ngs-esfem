@@ -30,7 +30,7 @@ class Vtk_out:
         T_set = [T_i for T_i in T_set_old if T_i>T_begin]
         n_set = [n_set[ii] for ii in range(len(n_set)) if T_set_old[ii]>T_begin]
         if len(T_set)==1:
-            self.Tsets = np.linspace(T_begin,T_set[0],n_set[0])
+            self.Tsets = np.linspace(T_begin,T_set[0],n_set[0]+1)
         else:
             self.Tsets = np.zeros(1)
             for ii in range(len(T_set)):
@@ -38,7 +38,7 @@ class Vtk_out:
                     init,endt = T_begin,T_set[0]
                 else:
                     init,endt = T_set[ii-1],T_set[ii]
-                self.Tsets = np.append(self.Tsets,np.linspace(init,endt,n_set[ii])[1:])
+                self.Tsets = np.append(self.Tsets,np.linspace(init,endt,n_set[ii]+1)[1:])
 
         self.index = 0
         self.fillnum = len(str(max(n_set)))
@@ -170,6 +170,9 @@ class Vtk_out_1d(Vtk_out):
         if self.index<len(self.Tsets) and (tnow is None or tnow >= self.Tsets[self.index]):
             self.VertsCoords[tnow] = (vertices)
             self.index += 1
+
+    def SaveNpy(self,pvd_name):
+        np.save(os.path.join(self.pathname,pvd_name), self.VertsCoords, allow_pickle=True)
 
 class SplineSeg3():
     '''

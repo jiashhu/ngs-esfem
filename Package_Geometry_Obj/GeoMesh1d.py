@@ -3,7 +3,7 @@ from ngsolve import *
 import numpy as np
 from Package_MyNgFunc import SurfacehInterp
 from Package_FEM_B import FEM1d
-from SM_util import Param1dCurve
+from .SM_util import Param1dCurve
 import sympy as sym
 
 phi = sym.Symbol('phi')
@@ -174,13 +174,14 @@ class EllipseMesh(CircleMesh):
         self.rL = rL
         self.rs = rs
         self.nv = n
-        Param = [self.cx + self.rL*sym.cos(phi), self.cy + self.rs**sym.sin(phi)]
+        Param = [self.cx + self.rL*sym.cos(phi), self.cy + self.rs*sym.sin(phi)]
         self.CurveObj = Param1dCurve(Param)
 
     def MeshPoly(self):
         theta = np.linspace(0,2*np.pi,self.nv+1)[:-1]
         Param_np = self.CurveObj.Param_np
-        self.vertices = np.hstack([Param_np[0](theta), Param_np[1](theta)])
+        self.vertices = np.hstack([Param_np[0](theta).reshape(-1,1), 
+                                    Param_np[1](theta).reshape(-1,1)])
         self.mesh = Mesh1dFromPoints(self.vertices,dim=1,adim=2)
 
     def ProjMap(self,x:np.ndarray):
