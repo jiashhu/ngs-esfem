@@ -1,5 +1,7 @@
 from ngsolve import *
 import numpy as np
+from netgen.csg import *
+import netgen.meshing as ngm
 
 class DiscreteMesh:
     '''
@@ -101,3 +103,11 @@ class DiscreteMesh:
         # 最大边长与最小边长之比
         Q_Leng = max(Leng_matrix)/min(Leng_matrix)
         return Q_Area, Q_Leng
+
+class CubicSurfaceMesh():
+    def __init__(self,maxh,center=(0,0,0),lxyz=(1,1,1)):
+        self.geo1 = CSGeometry()
+        Lx,Ly,Lz = np.array(center) - np.array(lxyz)/2
+        Rx,Ry,Rz = np.array(center) + np.array(lxyz)/2
+        self.geo1.Add (OrthoBrick( Pnt(Lx,Ly,Lz), Pnt(Rx,Ry,Rz) ))
+        self.mesh = Mesh(self.geo1.GenerateMesh(maxh=maxh,perfstepsend=ngm.MeshingStep.MESHSURFACE))

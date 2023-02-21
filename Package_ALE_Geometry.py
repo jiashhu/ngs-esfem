@@ -45,7 +45,7 @@ class Vtk_out:
         self.pathname = pathname
         self.done = False
         if not os.path.exists(pathname):
-            os.mkdir(pathname)
+            os.makedirs(pathname)
             mystr = '  vtk files are saved in {}  '.format(pathname)
             print('{:#^60}'.format(mystr))
         else:
@@ -65,7 +65,7 @@ class Vtk_out:
                 self.Rel_Mapping[vtu_list[ii].split('.vtu')[0]] = T
         np.save(file=os.path.join(filepath,'Rel_Mapping.npy'),arr=self.Rel_Mapping,allow_pickle=True)
 
-    def Output(self, mesh, function, tnow, command='', names=['sol']):
+    def Output(self, mesh, function, tnow, command='', names=['sol'],subdivision=0):
         perform = False
         if command == 'do':
             perform = True
@@ -74,7 +74,7 @@ class Vtk_out:
         if perform:
             vtk = VTKOutput(ma=mesh,coefs=function,names=names,\
                             filename=os.path.join(self.pathname,('{}'.format(self.index)).zfill(self.fillnum)),\
-                            subdivision=0,legacy=False)
+                            subdivision=subdivision,legacy=False)
             vtk.Do()
             self.index += 1
 

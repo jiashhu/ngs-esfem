@@ -14,26 +14,23 @@ except:
 import datetime
 
 class SliceableDict(dict):
+    '''
+        Initialize the same as the normal dictionary: SliceableDict(Param_dict) 
+        by sequence = {key:val for key,val in zip(range(5),range(2,6))}
+    '''
     def slice(self, *keys):
         return {k: self[k] for k in keys}
 
-def Transformh(L_Total,Nset):
-    h = [L_Total/Ni for Ni in Nset]
-    return h
-
-def GenerateLim(minh,maxh,minE,maxE,adj_param,opt='centeral'):
-    if opt == 'max':
-        ylim1,ylim2 = 10**np.floor(np.log(minE)/np.log(10)),10**np.ceil(np.log(maxE)/np.log(10))
-        ratio = ylim2/ylim1
-        xlim1,xlim2 = np.sqrt(minh*maxh)/np.sqrt(ratio), np.sqrt(minh*maxh)*np.sqrt(ratio)
-    elif opt == 'centeral':
-        cx = np.log(np.sqrt(minh*maxh))/np.log(10)
-        cy = np.log(np.sqrt(minE*maxE))/np.log(10)
-        hx = np.log(maxh/minh)/np.log(10)
-        hy = np.log(maxE/minE)/np.log(10)
-        ylim1, ylim2 = 10**(cy-hy/2), 10**(cy+hy/2)
-        xlim1, xlim2 = 10**(cx-hx/2), 10**(cx+hx/2)
-    return xlim1,xlim2,ylim1,ylim2
+def PNG2PDF(BaseDir):
+    flist = FO.Get_File_List(BaseDir)
+    for fname in flist:
+        if fname.endswith('.png'):
+            newname = '-'.join(fname.split('.')[:-1])
+            rgba = Image.open(os.path.join(BaseDir,fname))
+            rgb = Image.new('RGB', rgba.size, (255, 255, 255))  # white background
+            rgb.paste(rgba, mask=rgba.split()[3])               # paste using alpha channel as mask
+            rgb.save(os.path.join(BaseDir,'{}.pdf'.format(newname)), "PDF",
+                                resolution=100.0, save_all=True)
 
 def AnalyzeParam(h,err,order,adj_param,L_Total,xyCoef=None,add_order=0,opt='centeral'):
     # big h corresponds to big error, adj_param<1
@@ -250,9 +247,7 @@ def LogTime(timezone='Asia/Shanghai'):
 
 class FO():
     def Edit_Name(FoldPath,FileList,Prefix='',DelItem=''):
-        if not FoldPath.endswith('/'):
-            FoldPath += '/'
-        '''删除文件名中DelItem，增加前缀Prefix'''
+        '''删除文件名中DelItem, 增加前缀Prefix'''
         for fname in FileList:
             NewName = fname
             ModFlag = 0
@@ -265,13 +260,13 @@ class FO():
                     NewName = ''.join([Prefix,NewName])
                     ModFlag = 1
             if ModFlag:
-                os.rename(FoldPath+fname,FoldPath+NewName)
+                os.rename(os.path.join(FoldPath,fname),os.path.join(FoldPath,NewName))
 
     def Create_Data_Fold(DF_Path_Rel,MeshDirName,MName):
         '''
-        建立数据存储文件夹：DF_Path_Rel + Mesh名 + 方法名，
-        ./Data_MCF_Split/Dumbbell_Singular/Dziuk，
-        并将初始网格(vol格式) copy进去
+            建立数据存储文件夹: DF_Path_Rel + Mesh名 + 方法名，
+            ./Data_MCF_Split/Dumbbell_Singular/Dziuk，
+            并将初始网格(vol格式) copy进去
         '''
         Datafilepath = '{}/{}/{}/'.format(DF_Path_Rel,MeshDirName,MName)
         if not os.path.exists(Datafilepath):
@@ -297,8 +292,8 @@ class FO():
     def Get_File_List(file_path):
         '''
             获取当前文件夹下file
-            输入：文件路径
-            输出：list of file name (按创建时间排序)   
+            输入: 文件路径
+            输出: list of file name (按创建时间排序)   
         '''
         dir_list = os.listdir(file_path)
         if not dir_list:
@@ -321,8 +316,8 @@ class FO():
 
     def Generate_Name(ParamDict,MName,n=4):
         '''
-        输入参数: 参数Dict，参数名少于2个字母，并将MName词条排到第一个--值需要为str，
-        参数值如果是数字，采用科学计数表示，n表示小数点后的位数
+        输入参数: 参数Dict, 参数名少于2个字母, 并将MName词条排到第一个--值需要为str,
+        参数值如果是数字, 采用科学计数表示, n表示小数点后的位数
         '''
         Param_list = [ParamDict[MName]]
         for key, val in ParamDict.items():
@@ -342,7 +337,7 @@ class FO():
         return res
 
     def Parse_Name(DictPath,label='T1',suffix='.gz'):
-        '''解析DictPath下数据文件名中的label，返回Dict'''
+        '''解析DictPath下数据文件名中的label, 返回Dict'''
         MeshInfoDict = {}
         info = []
         for fname in FO.Get_File_List(DictPath):
@@ -352,14 +347,6 @@ class FO():
                     ind = info.index(label)
                     MeshInfoDict[fname] = info[ind+1]
         return MeshInfoDict
-
-    def Process_Message(t,T,n,state=0):
-        if state == 0:
-            print("Begin Running")
-        if t > T/n*state:
-            state += 1
-            print("Already finished {}/{}".format(state,n))
-        return state
 
     def PVD_Generate(pvd_path,folder_path_set:list,pvd_name,T_end_set:list=[np.inf]):
         '''
@@ -436,10 +423,6 @@ class FO():
                 print('Backup successfully!')
         else:
             print('The code is in the present directory.')
-
-# BaseDir = '/home/jiashhu/ws121_ALE/ConvergenceRate/Running/RevisedMCFDumbbell_h_05_NORe_Ref_Scale'
-# FO.PVD_Generate(BaseDir,['pvd_0_0906'],pvd_name='test.pvd')
-
 class MO():
     def Num2Sci(x,n):
         '''
@@ -587,3 +570,22 @@ class Printer():
         if told>=T_begin+(T-T_begin)*self.n_now/self.nprint:
             print("{}-Finished {} per cent".format(LogTime(),self.n_now/self.nprint*100))
             self.n_now += 1
+
+
+def Transformh(L_Total,Nset):
+    h = [L_Total/Ni for Ni in Nset]
+    return h
+    
+def GenerateLim(minh,maxh,minE,maxE,adj_param,opt='centeral'):
+    if opt == 'max':
+        ylim1,ylim2 = 10**np.floor(np.log(minE)/np.log(10)),10**np.ceil(np.log(maxE)/np.log(10))
+        ratio = ylim2/ylim1
+        xlim1,xlim2 = np.sqrt(minh*maxh)/np.sqrt(ratio), np.sqrt(minh*maxh)*np.sqrt(ratio)
+    elif opt == 'centeral':
+        cx = np.log(np.sqrt(minh*maxh))/np.log(10)
+        cy = np.log(np.sqrt(minE*maxE))/np.log(10)
+        hx = np.log(maxh/minh)/np.log(10)
+        hy = np.log(maxE/minE)/np.log(10)
+        ylim1, ylim2 = 10**(cy-hy/2), 10**(cy+hy/2)
+        xlim1, xlim2 = 10**(cx-hx/2), 10**(cx+hx/2)
+    return xlim1,xlim2,ylim1,ylim2

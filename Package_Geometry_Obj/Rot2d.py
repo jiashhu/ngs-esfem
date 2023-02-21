@@ -8,7 +8,7 @@ from netgen.csg import Pnt,SplineCurve2d,CSGeometry,Revolution,Sphere
 from ngsolve import *
 from netgen.meshing import MeshingParameters
 from Package_Geometry_Obj import *
-from .SM_util import Param1dSpline, Param1dCurve, phi, N
+from .SM_util import Param1dSpline, Param1dCurve, phi, N, RBCSpline, DumbbellSpline
 from .DM_util import DiscreteMesh
 
 def Mesh2dRotSpline(Spline_Obj:Param1dSpline,axis_opt,c_tag,maxh,order):
@@ -551,7 +551,7 @@ class RBC_Rot_Obj(Param2dRot):
         Profile_Obj = RBCSpline(a=a,b=b,c=c,N_Spline=N_Spline,T_min=-np.pi/2,T_max=np.pi/2,eps=1e-7,c_tag=False)
         super().__init__(Profile_Obj, axis_opt='x', c_tag=False)
 
-# MyRBC_Obj = RBC_Obj(a=0.4,b=1,c=2,N_Spline=9)
+# MyRBC_Obj = RBC_Rot_Obj(a=0.4,b=1,c=2,N_Spline=9)
 # MyRBC_Obj.Generate_Mesh(maxh=0.2,order=1)
-# mesh = RBC_Obj.mesh
+# mesh = MyRBC_Obj.mesh
 # print('good')

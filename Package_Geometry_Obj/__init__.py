@@ -6,11 +6,14 @@ from .GeoMesh1d import (
 
 from .Rot2d import (
     Ellipsoid,
-    MeshSphere
+    MeshSphere,
+    RBC_Rot_Obj,
+    Mesh2dDumbbell
 )
 
 from .DM_util import (
-    DiscreteMesh
+    DiscreteMesh,
+    CubicSurfaceMesh
 )
 
 from .SM_util import (
@@ -33,5 +36,8 @@ __all__ = [
     'DumbbellSpline',
     'RBCSpline',
     'FlowerCurve',
-    'MeshSphere'
+    'MeshSphere',
+    'CubicSurfaceMesh',
+    'RBC_Rot_Obj',
+    'Mesh2dDumbbell'
 ]
