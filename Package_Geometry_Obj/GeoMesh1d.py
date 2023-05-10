@@ -8,7 +8,7 @@ import sympy as sym
 
 phi = sym.Symbol('phi')
 
-def Mesh1dFromPoints(Coords,dim,adim):
+def Mesh1dFromPoints(Coords,dim,adim,Circ=True):
     nr = Coords.shape[0]
     mesh0= ngm.Mesh(dim=adim)
     pids = []
@@ -16,11 +16,23 @@ def Mesh1dFromPoints(Coords,dim,adim):
         pids.append (mesh0.Add (ngm.MeshPoint(ngm.Pnt(np.append(Coords[i],np.array([0]))))))  
 
     idx = mesh0.AddRegion("material", dim=dim)   ## dim=1: Boundary For a Mesh of adim=2
-    for i in range(nr):
-        if i<nr-1:
-            mesh0.Add(ngm.Element1D([pids[i],pids[i+1]],index=idx))
-        else:
-            mesh0.Add(ngm.Element1D([pids[i],pids[0]],index=idx))
+    if Circ:
+        for i in range(nr):
+            if i<nr-1:
+                mesh0.Add(ngm.Element1D([pids[i],pids[i+1]],index=idx))
+            else:
+                mesh0.Add(ngm.Element1D([pids[i],pids[0]],index=idx))
+    else:
+        # line in 1d and dirichlet boundary at two ends
+        idx_left = mesh0.AddRegion("left", dim=0)
+        idx_right = mesh0.AddRegion("right", dim=0)
+        mesh0.Add(ngm.Element0D(pids[0],index=idx_left))
+        mesh0.Add(ngm.Element0D(pids[-1],index=idx_right))
+        for i in range(nr):
+            if i<nr-1:
+                mesh0.Add(ngm.Element1D([pids[i],pids[i+1]],index=idx))
+
+
     mymesh = Mesh(mesh0)
     return mymesh
 
