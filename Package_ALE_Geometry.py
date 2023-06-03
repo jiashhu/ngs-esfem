@@ -17,6 +17,7 @@ import triangle as tr
 import netgen.meshing as ngm
 from pyevtk.hl import polyLinesToVTK
 from Package_MyCode import FO
+from Package_G1dMesh import Mesh1d
 # from Package_MyCode import do_profile
 
 Rot = lambda x: (x[1],-x[0])
@@ -27,6 +28,9 @@ def Rotation2d(x: tuple, theta: float):
 
 class Vtk_out:
     def __init__(self, T_set_old, n_set, pathname, T_begin=0):
+        '''
+            Generate to be saved Tsets
+        '''
         T_set = [T_i for T_i in T_set_old if T_i>T_begin]
         n_set = [n_set[ii] for ii in range(len(n_set)) if T_set_old[ii]>T_begin]
         if len(T_set)==1:
@@ -173,6 +177,33 @@ class Vtk_out_1d(Vtk_out):
 
     def SaveNpy(self,pvd_name):
         np.save(os.path.join(self.pathname,pvd_name), self.VertsCoords, allow_pickle=True)
+
+class yxt_1d_out(Vtk_out):
+    def __init__(self, x_save_ref, T, n, pathname, T_begin=0):
+        super().__init__(T, n, pathname, T_begin)
+        self.Data_List = []
+        self.t_List = []
+        self.x_ref = x_save_ref
+        Mesh_Obj = Mesh1d(min(x_save_ref),max(x_save_ref),len(x_save_ref)-1)
+        self.mesh     = Mesh(Mesh_Obj.ngmesh)
+        self.save_fem = H1(self.mesh)
+        self.funvalue = GridFunction(self.save_fem)
+
+    def Output(self, mesh, function, tnow, command='', names=['sol'], subdivision=0):
+        assert(len(function)==1)
+        func = function[0]
+        perform = False
+        if command == 'do':
+            perform = True
+        elif tnow >= self.Tsets[self.index]:
+            perform = True
+        if perform:
+            self.funvalue.Set(func)
+            self.Data_List.append(self.funvalue.vec.FV().NumPy().copy())
+            self.t_List.append(tnow)
+            self.index += 1
+        
+        
 
 class SplineSeg3():
     '''
