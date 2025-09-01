@@ -1,7 +1,7 @@
 from ngsolve import *
-from esfem.utils import GetIdCF
+from es_utils import GetIdCF
 from geometry import Mesh_Info_Parse, DiscreteMesh
-from esfem.utils import Pos_Transformer
+from es_utils import Pos_Transformer
 import numpy as np
 from global_utils import LogTime
 import os

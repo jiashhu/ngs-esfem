@@ -2,14 +2,8 @@ import os
 import numpy as np
 import math
 import re
-try:
-    import pytz
-    from cycler import cycler
-    import logging
-    import matplotlib as mpl
-    from line_profiler import LineProfiler
-except:
-    pass
+import pytz
+import logging
 import datetime
 
 class SliceableDict(dict):

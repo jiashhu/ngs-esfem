@@ -279,7 +279,8 @@ class RBCSpline(Param1dSpline):
         self.T_max = T_max
         self.T_min = T_min
         self.Param = [-(b-a*(sym.cos(phi)**2-1)**2)*sym.sin(phi), c*sym.cos(phi)]
-        super().__init__(Param=self.Param, T_min = self.T_min, T_max=self.T_max, N_Spline=N_Spline, eps=eps, c_tag=is_close)
+        super().__init__(Param=self.Param, T_min = self.T_min, T_max=self.T_max, 
+                         N_Spline=N_Spline, eps=eps, c_tag=is_close)
 
     def Get_Param(self, Coords):
         ## by arctan2, get values in [0,pi] (symmetric). What if point not on the curve???

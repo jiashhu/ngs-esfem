@@ -1,25 +1,17 @@
-from cmath import inf
-from math import fabs
-from pydoc import doc
-from sys import platform
 import os
-from tkinter import Grid
 from netgen.geom2d import *
 from ngsolve import *
 import numpy as np
 from scipy.sparse import coo
 from sympy import false
-from esfem.utils import NGMO
+from es_utils import NGMO
 from collections import Counter
 import scipy
 from scipy.sparse import linalg as LA
 import netgen.meshing as ngm
-try:
-    import triangle as tr
-except:
-    pass
 from global_utils import FO
-from Package_G1dMesh import Mesh1d
+from geometry.g1dMesh import Mesh1d
+from viz.vtk_out import *
 # from Package_MyCode import do_profile
 
 Rot = lambda x: (x[1],-x[0])

@@ -2,17 +2,18 @@ import sympy as sym
 import sympy.physics.vector as spv
 import numpy as np
 import netgen.meshing as ngm
-from netgen.csg import Pnt,SplineCurve2d,CSGeometry,Revolution,Sphere
 from ngsolve import *
 from netgen.meshing import MeshingParameters
 from geometry import *
 from .param_curve import Param1dSpline, Param1dCurve, phi, N, RBCSpline, DumbbellSpline
 from .discrete_mesh import DiscreteMesh
 from netgen.occ import SplineApproximation, Pnt, Axis, Face, Wire, Segment, Revolve, OCCGeometry, Z, X, Y
+from netgen.csg import Pnt,SplineCurve2d,CSGeometry,Revolution,Sphere
 
+# 后面的 axis中用到的Pnt是 netgen.csg 中的Pnt
 def Mesh2dRotSpline(Spline_Obj:Param1dSpline,axis_opt,c_tag,maxh,order):
     if axis_opt == 'x':
-        axis_0, axis_1 = Pnt(0,0,0), Pnt(1,0,0)
+        axis_0, axis_1 = Pnt(0,0,0), Pnt(1,0,0) 
     elif axis_opt == 'z':
         axis_0, axis_1 = Pnt(0,0,0), Pnt(0,0,1)
     spline = SplineCurve2d() # create a 2d spline

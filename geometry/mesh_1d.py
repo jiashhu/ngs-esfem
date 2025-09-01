@@ -1,7 +1,7 @@
 import netgen.meshing as ngm
 from ngsolve import *
 import numpy as np
-from esfem.utils import SurfacehInterp, FEM1d
+from es_utils import SurfacehInterp, FEM1d
 from .param_curve import Param1dCurve
 import sympy as sym
 

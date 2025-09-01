@@ -2,8 +2,8 @@ from ngsolve import *
 from ngsolve.comp import IntegrationRuleSpaceSurface
 import numpy as np
 from esfem.ode import BDF
-from esfem.utils import Pos_Transformer, NgMFSave, SurfacehInterp
-from esfem.ale import Vtk_out_BND
+from es_utils import Pos_Transformer, NgMFSave, SurfacehInterp
+from viz.vtk_out import Vtk_out_BND
 from geometry import DiscreteMesh, Param2dRot
 from global_utils import LogTime
 import os

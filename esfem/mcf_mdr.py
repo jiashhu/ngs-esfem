@@ -1,8 +1,8 @@
 from ngsolve import *
 import numpy as np
 from esfem.ode import BDF
-from esfem.utils import Pos_Transformer, NgMFSave
-from esfem.ale import Vtk_out_BND
+from es_utils import Pos_Transformer, NgMFSave
+from viz.vtk_out import Vtk_out_BND
 from geometry import DiscreteMesh, Param2dRot
 from global_utils import LogTime
 from ._unsolved_pack import *
