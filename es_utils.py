@@ -4,6 +4,7 @@ import numpy as np
 import os
 from global_utils import FO
 from ngsolve.comp import IntegrationRuleSpaceSurface
+import copy
 
 def GetGeoHighOrderQuant(mymesh,order,dof_linear_num):
     mymesh.Curve(order)
@@ -33,10 +34,10 @@ def GetGeoHighOrderQuant(mymesh,order,dof_linear_num):
     mymesh.Curve(1)
     return np_vec_sets
 
-H1errfun = lambda xfun,mymesh: sqrt(Integrate(InnerProduct(grad(xfun).Trace(),grad(xfun).Trace())
+h1_err_fun = lambda xfun,mymesh: sqrt(Integrate(InnerProduct(grad(xfun).Trace(),grad(xfun).Trace())
                                         +InnerProduct((xfun),(xfun)), mymesh, 
                                         element_wise=False, definedon=mymesh.Boundaries('.*')))
-L2errfun = lambda xfun,mymesh: sqrt(Integrate(InnerProduct((xfun),(xfun)), mymesh, 
+l2_err_fun = lambda xfun,mymesh: sqrt(Integrate(InnerProduct((xfun),(xfun)), mymesh, 
                                         element_wise=False, definedon=mymesh.Boundaries('.*')))
 
 class FEM1d():
@@ -84,7 +85,7 @@ class FEM1d():
                 0, 1/4, 1/2, 3/4, 1
             ]
 
-def TensorProduct(u,v):
+def cf_tensor_product(u,v):
     '''
         tensorproduct of list objects. 
 
@@ -98,152 +99,83 @@ def TensorProduct(u,v):
     tensor_ele = [u[ii]*v[jj] for ii in range(dimu) for jj in range(dimv)]
     return CF(tuple(tensor_ele),dims=(dimu,dimv))
     
-def GetIdCF(dim):
+def get_id_cf(dim):
     if dim == 2:
         idCF = CF((x,y))
     elif dim == 3:
         idCF = CF((x,y,z))
     return idCF
 
+def pos_transformer(pos_grid_func,dim=None):
+    if dim is None:
+        dim = pos_grid_func.dim
+    else:
+        assert(pos_grid_func.dim == dim)
+    num = int(len(pos_grid_func.vec)/dim)
+    coords = pos_grid_func.vec.Reshape(num).NumPy().copy()
+    return coords.T
+        
 class SurfacehInterp():
     '''
-        High order Lagrangian interpolation, by interpolation on Gaussian quadrature nodes of 1 order higher and L2 projection back
-
+        High order Lagrangian interpolation, 
+        by interpolation on Gaussian quadrature nodes of 1 order higher 
+        and L2 projection back
+        1. build hInterp_Obj = SurfacehInterp(mesh,order)
+        2. 创建曲面积分规则，以及能够得到对应点插值位置的有限元空间fesir
     '''
     def __init__(self,mesh,order) -> None:
         self.order = order
         self.mesh = mesh
         self.dim = self.mesh.dim
-        self.fesir = IntegrationRuleSpaceSurface(self.mesh, order=self.order, definedon=self.mesh.Boundaries('.*'))
+        self.fesir = IntegrationRuleSpaceSurface(self.mesh, order=self.order, 
+                                                 definedon=self.mesh.Boundaries('.*'))
+        self.fesir_vector = self.fesir**self.dim
         self.irs = self.fesir.GetIntegrationRules()
         self.fes = H1(self.mesh,order=self.order)
-        self.fesV = VectorH1(self.mesh,order=self.order)
+        self.fes_vector = VectorH1(self.mesh,order=self.order)
         self.L2u, self.L2v = self.fes.TnT()
-        self.L2uV, self.L2vV = self.fesV.TnT()
+        self.L2u_vector, self.L2v_vector = self.fes_vector.TnT()
         mass = BilinearForm(self.L2u*self.L2v*ds).Assemble().mat
-        massV = BilinearForm(InnerProduct(self.L2uV,self.L2vV)*ds).Assemble().mat
-        self.invmass = mass.Inverse(inverse="sparsecholesky")
-        self.invmassV = massV.Inverse(inverse="sparsecholesky")
-        RitzV = BilinearForm(InnerProduct(self.L2uV,self.L2vV)*ds
-                            +InnerProduct(grad(self.L2uV).Trace(),grad(self.L2vV).Trace())*ds).Assemble().mat
-        self.invRitzV = RitzV.Inverse(inverse="sparsecholesky")
-        self.fesirV = self.fesir**self.dim
-        self.idCF = GetIdCF(self.dim)
+        self.inv_mass = mass.Inverse(inverse="sparsecholesky")
+        self.id_coef_func = get_id_cf(self.dim)
         self.rhs, self.rhsV = None, None
+    
+    def return_l2(self,vec,deform=None):
+        '''
+            vec: Interpolated values at quadrature nodes
+            return: ndarray containing vector values of GridFunction on fes
+        ''' 
+        if deform is not None:
+            self.mesh.SetDeformation(deform)
+        quad_interp_func = GridFunction(self.fesir)
+        quad_interp_func.vec.data = BaseVector(vec)
+        res  = GridFunction(self.fes)
+        rhs  = LinearForm(quad_interp_func * self.L2v * ds(intrules=self.irs))
+        rhs.Assemble()
+        res.vec.data = self.inv_mass * rhs.vec
+        return copy.deepcopy(res.vec.FV().NumPy())
 
-    def GetCoordsQuad(self):
+
+    def get_coords_quad(self):
         '''
             Get values of the identity(position) on quadrature nodes
         '''
-        return self.GetValuesQuad(self.idCF)
+        return self.get_values_quad(self.id_coef_func)
 
-    def GetValuesQuad(self,CF):
+    def get_values_quad(self,coef_func):
         '''
             Get values of CF on quadrature nodes
         '''
-        ndim = CF.dim
-        CF_values_np = np.zeros((self.fesir.ndof,ndim))
-        Interp_fun = GridFunction(self.fesir)
+        ndim = coef_func.dim
+        cf_values = np.zeros((self.fesir.ndof,ndim))
+        interp_fun = GridFunction(self.fesir)
         for ii in range(ndim):
             # for 1d CF, CF[0] is right
-            Interp_fun.Interpolate(CF[ii],self.mesh.Boundaries('.*')) 
-            CF_values_np[:,ii] = Interp_fun.vec.FV().NumPy().copy()
-        return CF_values_np
+            interp_fun.Interpolate(coef_func[ii],self.mesh.Boundaries('.*')) 
+            cf_values[:,ii] = interp_fun.vec.FV().NumPy().copy()
+        return cf_values
 
-    def Return2L2Byrhs(self,L2Func):
-        ndim = L2Func.dim
-        if ndim == 1:
-            self.rhs.Assemble()
-            L2Func.vec.data = self.invmass * self.rhs.vec
-        else:
-            self.rhsV.Assemble()
-            L2Func.vec.data = self.invmassV * self.rhsV.vec
-
-    def Return2L2(self,vec):
-        '''
-            vec: Interpolated values at quadrature nodes
-            
-            return: GridFunction on fes
-        ''' 
-        IntFunc = GridFunction(self.fesir)
-        IntFunc.vec.data = BaseVector(vec)
-        L2Func  = GridFunction(self.fes)
-        rhs     = LinearForm(IntFunc*self.L2v*ds(intrules=self.irs))
-        rhs.Assemble()
-        L2Func.vec.data = self.invmass * rhs.vec
-        return L2Func.vec.FV().NumPy().copy()
-
-    def ReturnByRitzV(self,u,Du):
-        '''
-            u: CF function
-        '''
-        L2Func = GridFunction(self.fesV)
-        rhs  = LinearForm(self.fesV)
-        rhs += InnerProduct(u,self.L2vV)*ds + InnerProduct(Du,grad(self.L2vV).Trace())*ds
-        rhs.Assemble()
-        L2Func.vec.data = self.invRitzV * rhs.vec
-        return L2Func.vec.FV().NumPy().copy()
-    
-    def ReturnByL2(self,u):
-        '''
-            u: CF function
-        '''
-        L2Func = GridFunction(self.fes)
-        rhs  = LinearForm(self.fes)
-        rhs += InnerProduct(u,self.L2v)*ds
-        rhs.Assemble()
-        L2Func.vec.data = self.invmass * rhs.vec
-        return L2Func.vec.FV().NumPy().copy()
-
-def NgMFSave(CaseName,BaseDirPath,mesh,funclist:list,func_name_list:list,data_dict:dict):
-    '''
-        Save Mesh: Ngsolve.comp.mesh, save ngmesh and curve order
-        Save GF function: defindon_type, order, vector
-    '''
-    CaseDirPath = os.path.join(BaseDirPath,CaseName)
-    if not os.path.exists(CaseDirPath):
-        os.mkdir(CaseDirPath)
-    CurveOrder = mesh.GetCurveOrder()
-    mesh.ngmesh.Save(os.path.join(CaseDirPath,'Mesh.vol'))
-    # save info of each GF: defindon_type, order, space_type 
-    DataDict = data_dict
-    DataDict['mesh_order'] = CurveOrder
-    FuncDict = {}
-    for GF,GF_name in zip(funclist,func_name_list):
-        GF.Save(os.path.join(CaseDirPath,GF_name))
-        order = GF.space.flags.ToDict()['order']
-        FuncDict[GF_name] = ['bnd',int(order),GF.space.type]
-    DataDict['Func'] = FuncDict
-    np.save(file=os.path.join(CaseDirPath,'info.npy'),arr=DataDict,allow_pickle=True)
-
-class LoadNgMF():
-    def __init__(self,CaseName,BaseDirPath) -> None:
-        self.FolderPath = os.path.join(BaseDirPath,CaseName)
-        self.mesh_path = os.path.join(self.FolderPath,'Mesh.vol')
-        self.info_path = os.path.join(self.FolderPath,'info.npy')
-        self.Data_Dict = np.load(file=self.info_path,allow_pickle=True).item()
-        self.mesh_order = self.Data_Dict['mesh_order']
-    
-    def RecoverMesh(self):
-        # recover high order mesh
-        mesh = Mesh(self.mesh_path)
-        mesh.Curve(self.mesh_order)
-        return mesh
-        
-    def RecoverGF(self,gf_in,gf_name:str):
-        gf_in.Load(os.path.join(self.FolderPath,gf_name))
-        return gf_in
-
-def Pos_Transformer(Pos_GF,dim=None):
-    if dim is None:
-        dim = Pos_GF.dim
-    else:
-        assert(Pos_GF.dim == dim)
-    N = int(len(Pos_GF.vec)/dim)
-    coords = Pos_GF.vec.Reshape(N).NumPy().copy()
-    return coords.T
-    
-class NGMO():
+class Ng_Matrix_Oper():
     def SparseMatPlus(A,B,a=1,b=1):
         '''输入sparsematrixd A, B, 返回aA+bB'''
         A_data = list(A.COO())
@@ -252,12 +184,12 @@ class NGMO():
         A_data[2] = A_data[2].NumPy().tolist()
         B_data[2] = B_data[2].NumPy().tolist()
         
-        A_coo = NGMO.myCOO(A_data[0],A_data[1],A_data[2],*(A.shape),'scipy')
-        B_coo = NGMO.myCOO(B_data[0],B_data[1],B_data[2],*(B.shape),'scipy')
+        A_coo = Ng_Matrix_Oper.myCOO(A_data[0],A_data[1],A_data[2],*(A.shape),'scipy')
+        B_coo = Ng_Matrix_Oper.myCOO(B_data[0],B_data[1],B_data[2],*(B.shape),'scipy')
         LinComb = A_coo*a+B_coo*b
         LinComb = LinComb.tocoo()
         val,row,col = map(list,[LinComb.data,LinComb.row,LinComb.col])
-        res = NGMO.myCOO(row,col,val,*(A.shape),'ngsolve')
+        res = Ng_Matrix_Oper.myCOO(row,col,val,*(A.shape),'ngsolve')
         return res
 
     def myCOO(row:list,col:list,val:list,m,n,tag):
@@ -306,4 +238,41 @@ class NGMO():
                 print("误差为{}，结果可能不同".format(err))
             print("测试向量L^2norm为{}".format(np.linalg.norm(testv)))
 
+def NgMFSave(CaseName,BaseDirPath,mesh,funclist:list,func_name_list:list,data_dict:dict):
+    '''
+        Save Mesh: Ngsolve.comp.mesh, save ngmesh and curve order
+        Save GF function: defindon_type, order, vector
+    '''
+    CaseDirPath = os.path.join(BaseDirPath,CaseName)
+    if not os.path.exists(CaseDirPath):
+        os.mkdir(CaseDirPath)
+    CurveOrder = mesh.GetCurveOrder()
+    mesh.ngmesh.Save(os.path.join(CaseDirPath,'Mesh.vol'))
+    # save info of each GF: defindon_type, order, space_type 
+    DataDict = data_dict
+    DataDict['mesh_order'] = CurveOrder
+    FuncDict = {}
+    for GF,GF_name in zip(funclist,func_name_list):
+        GF.Save(os.path.join(CaseDirPath,GF_name))
+        order = GF.space.flags.ToDict()['order']
+        FuncDict[GF_name] = ['bnd',int(order),GF.space.type]
+    DataDict['Func'] = FuncDict
+    np.save(file=os.path.join(CaseDirPath,'info.npy'),arr=DataDict,allow_pickle=True)
 
+class LoadNgMF():
+    def __init__(self,CaseName,BaseDirPath) -> None:
+        self.FolderPath = os.path.join(BaseDirPath,CaseName)
+        self.mesh_path = os.path.join(self.FolderPath,'Mesh.vol')
+        self.info_path = os.path.join(self.FolderPath,'info.npy')
+        self.Data_Dict = np.load(file=self.info_path,allow_pickle=True).item()
+        self.mesh_order = self.Data_Dict['mesh_order']
+    
+    def RecoverMesh(self):
+        # recover high order mesh
+        mesh = Mesh(self.mesh_path)
+        mesh.Curve(self.mesh_order)
+        return mesh
+        
+    def RecoverGF(self,gf_in,gf_name:str):
+        gf_in.Load(os.path.join(self.FolderPath,gf_name))
+        return gf_in

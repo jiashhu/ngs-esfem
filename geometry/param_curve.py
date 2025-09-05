@@ -4,6 +4,7 @@ import numpy as np
 
 # 曲线的参数化的symbol
 phi = sym.Symbol('phi')
+psi = sym.Symbol('psi')
 # 三维坐标系！！
 N = spv.ReferenceFrame('N')
 
@@ -97,7 +98,7 @@ class Param1dCurve:
                     theta[ii] -= self.T_max
         return np.sort(theta)
 
-    def Get_Param_Projection(self,Coords2d:np.ndarray,threshold=1e-6, val_thres=1e-6,iter_max=15):
+    def get_param_projection(self,Coords2d:np.ndarray,threshold=1e-6, val_thres=1e-6,iter_max=15):
         theta_set = np.zeros((Coords2d.shape[0],1))
         for ii,Coord in enumerate(Coords2d):
             # 通过粗筛选定Newton迭代的下界限，初值以及上界限
@@ -151,7 +152,7 @@ class Param1dSpline(Param1dCurve):
         super().__init__(Param, T_min, T_max, theta_dis)
         self.ctrbase, self.ctr = self.Generate_Control_Point(N_Spline,eps,c_tag)
     
-    def Get_Param(self, Coords):
+    def get_param(self, Coords):
         # Compute parameter from 2d, rewritten by case
         pass
 
@@ -224,7 +225,7 @@ class EllipseSpline(Param1dSpline):
         self.Param = [a*sym.cos(phi),b*sym.sin(phi)]
         super().__init__(Param=self.Param, T_max=self.T_max, N_Spline=N_Spline, eps=eps, c_tag=c_tag, T_min=T_min)
 
-    def Get_Param(self, Coords):
+    def get_param(self, Coords):
         x_coord = Coords[:,0]
         z_coord = Coords[:,1]
         phi_np = np.arctan2(z_coord/self.b, x_coord/self.a)
@@ -262,7 +263,7 @@ class DumbbellSpline(Param1dSpline):
         self.Param = [sym.cos(phi),(a*sym.cos(phi)**2+b)*sym.sin(phi)]
         super().__init__(Param=self.Param, T_max=self.T_max, N_Spline=N_Spline, eps=eps, c_tag=c_tag)
 
-    def Get_Param(self, Coords):
+    def get_param(self, Coords):
         ## by arctan2, get values in [0,pi] (symmetric). What if point not on the curve???
         x_coord = Coords[:,0]
         z_coord = Coords[:,1]
@@ -282,7 +283,7 @@ class RBCSpline(Param1dSpline):
         super().__init__(Param=self.Param, T_min = self.T_min, T_max=self.T_max, 
                          N_Spline=N_Spline, eps=eps, c_tag=is_close)
 
-    def Get_Param(self, Coords):
+    def get_param(self, Coords):
         ## by arctan2, get values in [0,pi] (symmetric). What if point not on the curve???
         x_coord = Coords[:,0]
         z_coord = Coords[:,1]/self.c
@@ -302,7 +303,7 @@ class CliffordTorusSpline(Param1dSpline):
         self.Param = [1-self.a*sym.sin(phi), self.a*sym.cos(phi)]
         super().__init__(Param=self.Param, T_min = self.T_min, T_max=self.T_max, N_Spline=N_Spline, eps=eps, c_tag=is_close)
 
-    def Get_Param(self, Coords):
+    def get_param(self, Coords):
         ## by arctan2, get values in [0,pi] (symmetric). What if point not on the curve???
         x_coord = Coords[:,0]
         z_coord = Coords[:,1]

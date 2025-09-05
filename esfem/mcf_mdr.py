@@ -1,8 +1,8 @@
 from ngsolve import *
 import numpy as np
 from esfem.ode import BDF
-from es_utils import Pos_Transformer, NgMFSave
-from viz.vtk_out import Vtk_out_BND
+from es_utils import pos_transformer, NgMFSave
+from viz.vtk_out import VtkOutBnd
 from geometry import DiscreteMesh, Param2dRot
 from global_utils import LogTime
 from ._unsolved_pack import *
@@ -75,9 +75,9 @@ class LapVDNMCF_v2():
         Coords3d[:,1] = gfuiry.vec.FV().NumPy()
         Coords3d[:,2] = gfuirz.vec.FV().NumPy()
         phi_np, theta_np = Geo_Rot_Obj.Get_Param(Coords3d,Near_opt=True)
-        Pset, Normset = Geo_Rot_Obj.Get_Pos_Norm(phi_np, theta_np)
+        Pset, Normset = Geo_Rot_Obj.get_pos_norm(phi_np, theta_np)
         DefCoords = Pset-Coords3d
-        tmpfunc = lambda x: self.Return2L2(x)
+        tmpfunc = lambda x: self.return_l2(x)
         ModPosx,ModPosy,ModPosz = map(tmpfunc,[Pset[:,0],Pset[:,1],Pset[:,2]])
         ModNGridx,ModNGridy,ModNGridz = map(tmpfunc,[Normset[:,0],Normset[:,1],Normset[:,2]])
         DefPosx,DefPosy,DefPosz = map(tmpfunc,[DefCoords[:,0],DefCoords[:,1],DefCoords[:,2]])
@@ -189,8 +189,8 @@ class LapVDNMCF_v2():
     def IniWithScale(self,scale):
         # total scale
         self.scale *= scale 
-        Base_Coord = Pos_Transformer(self.BaseX, dim=3)
-        Disp_np = scale * (Base_Coord + Pos_Transformer(self.Disp, dim=3)) - Base_Coord
+        Base_Coord = pos_transformer(self.BaseX, dim=3)
+        Disp_np = scale * (Base_Coord + pos_transformer(self.Disp, dim=3)) - Base_Coord
         self.Disp.vec.data = BaseVector(Disp_np.flatten('F'))
         # only work for 1st order
         self.Hold.vec.data = BaseVector(1/scale*self.Hold.vec.FV().NumPy())
@@ -210,7 +210,7 @@ class LapVDNMCF_v2():
         self.vold.Load(os.path.join(SavePath,'vold'))
         self.mesh.SetDeformation(self.Disp)
 
-    def Return2L2(self,vec):
+    def return_l2(self,vec):
         '''
             vec: Interpolated values at quadrature nodes
         '''
@@ -248,7 +248,7 @@ class LapVDNMCF_v2():
 
     def Get_Vertices_Coords(self):
         self.VCoord.Interpolate(CF((x,y,z)),definedon=self.mesh.Boundaries(".*"))
-        Vertices_Coords = Pos_Transformer(self.VCoord,dim=3)
+        Vertices_Coords = pos_transformer(self.VCoord,dim=3)
         return Vertices_Coords
 
     def MQ_Measure_Set(self):
@@ -267,7 +267,7 @@ class LapVDNMCF_v2():
     
     def Get_Proper_dt(self,coef=1):
         # order h**2, independent of scale
-        Vertices_Coords = Pos_Transformer(self.Disp, dim=self.dim) + Pos_Transformer(self.BaseX, dim=self.dim)
+        Vertices_Coords = pos_transformer(self.Disp, dim=self.dim) + pos_transformer(self.BaseX, dim=self.dim)
         self.DMesh_Obj.UpdateCoords(Vertices_Coords)
         h = min(np.linalg.norm(self.DMesh_Obj.barvec,axis=1))
         dt = coef*h**2
@@ -291,7 +291,7 @@ class LapVDNMCF_v2():
             print('Completed {} per cent'.format(int(self.counter_print/5*100)))
             self.counter_print += 1
 
-    def PP_Pic(self,vtk_obj:Vtk_out_BND=None):
+    def PP_Pic(self,vtk_obj:VtkOutBnd=None):
         # Post Process: Saving Picture
         pass
 
@@ -303,7 +303,7 @@ class LapVDNMCF_v2():
         NgMFSave(CaseName=Case_Name, BaseDirPath=BaseDirPath, mesh=self.mesh, funclist=flist, func_name_list=fnlist, data_dict=t_scale_dict)
         print('Now T={}, Save Functions in {}'.format(self.T,Case_Name))
 
-    def Solving(self,vtk_obj:Vtk_out_BND=None):
+    def Solving(self,vtk_obj:VtkOutBnd=None):
         '''
             if vtk_obj not None, output vtk file.
         '''
@@ -328,6 +328,6 @@ class LapVDNMCF_v2():
         self.finalT = self.t
 
     def NormalizeN(self):
-        n_mat = Pos_Transformer(self.nuold,dim=3)
+        n_mat = pos_transformer(self.nuold,dim=3)
         unit_n_mat = n_mat/(np.linalg.norm(n_mat,axis=1)[:,None])
         self.nuold.vec.data = BaseVector(unit_n_mat.flatten('F'))

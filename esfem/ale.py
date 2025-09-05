@@ -4,7 +4,7 @@ from ngsolve import *
 import numpy as np
 from scipy.sparse import coo
 from sympy import false
-from es_utils import NGMO
+from es_utils import Ng_Matrix_Oper
 from collections import Counter
 import scipy
 from scipy.sparse import linalg as LA
@@ -739,13 +739,13 @@ class X_DisLapExt(Extension):
                 A_data[2][ii] = 1/Adjacent_nums[row_num]
             else:
                 A_data[2][ii] = -1
-        Lap_u = NGMO.myCOO(A_data[0],A_data[1],A_data[2],*(A.shape),'scipy')
+        Lap_u = Ng_Matrix_Oper.myCOO(A_data[0],A_data[1],A_data[2],*(A.shape),'scipy')
         return Lap_u.copy()
             
     def Normal_Equation_Setting(self):
         ## 通过固定的节点用最小二乘依次计算其他节点的xy分量
         B = self.DisLap.tocsc()
-        BlockDirichlet = NGMO.myCOO(list(range(self.Nfix)),list(range(self.Nfix)),list(np.ones(self.Nfix)),self.Nfix,B.shape[1],'scipy')
+        BlockDirichlet = Ng_Matrix_Oper.myCOO(list(range(self.Nfix)),list(range(self.Nfix)),list(np.ones(self.Nfix)),self.Nfix,B.shape[1],'scipy')
         BD = BlockDirichlet.tocsc()
         ## 稀疏的单位矩阵补零使得和B同样的列数
         Lhs_Mat = scipy.sparse.bmat([[B], [BD]])
@@ -755,7 +755,7 @@ class X_DisLapExt(Extension):
         ## 分别利用法方程来求解两个分量：
         #   [Lu  ]   [new] = [ 0  ]
         #   [Im 0]   [ V ] = [Vbnd]
-        Coords_interface = Pos_Transformer(X_interface)
+        Coords_interface = pos_transformer(X_interface)
         zero_vec = np.zeros(self.Nall).reshape(self.Nall,1)
         vx = scipy.sparse.bmat([[zero_vec],[Coords_interface[:,0].reshape(self.Nfix,1)]])
         Coords_new_x = LA.spsolve(self.Lhs_Mat.transpose()@self.Lhs_Mat,self.Lhs_Mat.transpose()@vx)
@@ -801,7 +801,7 @@ class HarmonicPullingBack(Extension):
         Pos_interface = GridFunction(fesV)
         Pos_interface.Interpolate(CoefficientFunction((x,y)),definedon=self.mesh.Boundaries(".*"))
         ## 边界点的坐标，第i行为编号为i的点的坐标
-        Bnd_Coords = Pos_Transformer(Pos_interface)
+        Bnd_Coords = pos_transformer(Pos_interface)
         ## 取值在 -np.pi 到 np.pi 之间
         Bnd_theta = np.arctan2(Bnd_Coords[:,1],Bnd_Coords[:,0])
         ## index的第i个元素为从小往大排列第i个theta的index，例如第一个数为5，说明最小的是第5个点
@@ -842,7 +842,7 @@ class HarmonicPullingBack(Extension):
         lhs.Assemble()
         rhs.Assemble()
         Harmonic_map.vec.data = g0.vec + lhs.mat.Inverse(inverse="pardiso",freedofs=fesVector.FreeDofs())*rhs.vec
-        return Pos_Transformer(Harmonic_map)
+        return pos_transformer(Harmonic_map)
 
     def PreMeshMod(self,Coords_Origin_A):
         '''
@@ -961,7 +961,7 @@ class HarmonicPullingBackQIR(Extension):
         Pos_interface = GridFunction(fesV)
         Pos_interface.Interpolate(CoefficientFunction((x,y)),definedon=self.mesh.Boundaries("bnd"))
         ## 边界点的坐标，第i行为编号为i的点的坐标
-        Bnd_Coords = Pos_Transformer(Pos_interface)
+        Bnd_Coords = pos_transformer(Pos_interface)
         ## 取值在 -np.pi 到 np.pi 之间
         Bnd_theta = np.arctan2(Bnd_Coords[:,1],Bnd_Coords[:,0])
         ## index的第i个元素为从小往大排列第i个theta的index，例如第一个数为5，说明最小的是第5个点
@@ -1013,7 +1013,7 @@ class HarmonicPullingBackQIR(Extension):
         lhs.Assemble() 
         rhs.Assemble() 
         Harmonic_map.vec.data = g0.vec + lhs.mat.Inverse(inverse="pardiso",freedofs=fesVector.FreeDofs())*rhs.vec 
-        return Pos_Transformer(Harmonic_map) 
+        return pos_transformer(Harmonic_map) 
     
     def CoordB_Recover(self):
         CoordsB = self.CoordMeshB
@@ -1130,10 +1130,10 @@ class HarmonicPullingBackQIRParametric():
         self.Disp.vec.data = BaseVector((self.PhyCoordPullBack-self.Coords_Param).flatten('F'))
         # 再次的Disp，来自Mod_By_Jac
         if No_Initial_Test:
-            self.Disp.vec.data = BaseVector((Pos_Transformer(self.Mod_Phys_Mesh_By_Jac(self.Diffusive_Metric_Tag))-self.Coords_Param).flatten('F'))
+            self.Disp.vec.data = BaseVector((pos_transformer(self.Mod_Phys_Mesh_By_Jac(self.Diffusive_Metric_Tag))-self.Coords_Param).flatten('F'))
         else:
             self.Mod_Disp = GridFunction(self.fesV)
-            self.Mod_Disp.vec.data = BaseVector((Pos_Transformer(self.Mod_Phys_Mesh_By_Jac(self.Diffusive_Metric_Tag))-self.Coords_Param).flatten('F'))
+            self.Mod_Disp.vec.data = BaseVector((pos_transformer(self.Mod_Phys_Mesh_By_Jac(self.Diffusive_Metric_Tag))-self.Coords_Param).flatten('F'))
         ## 此时的ParamMesh是有SetDeformation的，但不是最终到物理域网格的Disp
 
     def Initialize(self):
@@ -1153,7 +1153,7 @@ class HarmonicPullingBackQIRParametric():
             * 生成参数域网格上映射到deform之后网格的映射Pos_Update，生成Jacobian
             * 在PhysicalMesh（参数域网格+Disp）上求解带扩散系数的二阶方程 -- Dirichlet边界条件为保持PhysicalMesh的边界不变
         '''
-        Coord_Update = Pos_Transformer(self.Disp) + self.Coords_Param
+        Coord_Update = pos_transformer(self.Disp) + self.Coords_Param
         ## PhysicalMesh的节点坐标以及Interface上的值（Dirichlet边界条件）
         Pos_Update = GridFunction(self.fesV)
         Pos_Update.vec.data = BaseVector(Coord_Update.flatten('F'))
@@ -1219,7 +1219,7 @@ class HarmonicPullingBackQIRParametric():
             # Physical domain的interface的坐标
             Pos_interface_Physic = GridFunction(PDfesV_bnd)
             Pos_interface_Physic.Interpolate(CF((x,y)), definedon=PDmesh.Boundaries('bnd'))
-            self.Coord_Interface = Pos_Transformer(Pos_interface_Physic)
+            self.Coord_Interface = pos_transformer(Pos_interface_Physic)
             # 按照theta顺序在圆周上等距排列
             theta_Interface = np.arctan2(self.Coord_Interface[:,1],self.Coord_Interface[:,0])
             index = sorted(range(len(theta_Interface)), key=lambda ii: theta_Interface[ii])
@@ -1246,7 +1246,7 @@ class HarmonicPullingBackQIRParametric():
         lhs.Assemble() 
         rhs.Assemble() 
         Harmonic_map.vec.data = g0.vec + lhs.mat.Inverse(inverse="pardiso",freedofs=PDfesV.FreeDofs())*rhs.vec 
-        return Pos_Transformer(Harmonic_map) 
+        return pos_transformer(Harmonic_map) 
 
     def PreMeshMod(self,Coords_Origin_A):
         '''
@@ -1302,7 +1302,7 @@ class HarmonicPullingBackQIRParametric():
         Coords_Update_A[:self.bnd_num,:] = Coords_Origin_A[:self.bnd_num,:]
         self.Disp.vec.data = BaseVector((Coords_Update_A-self.Coords_Param).flatten('F'))
         # 再次拉回 -- 通过Mod_By_Jac
-        self.Disp.vec.data = BaseVector((Pos_Transformer(self.Mod_Phys_Mesh_By_Jac())-self.Coords_Param).flatten('F'))
+        self.Disp.vec.data = BaseVector((pos_transformer(self.Mod_Phys_Mesh_By_Jac())-self.Coords_Param).flatten('F'))
 
 def CreatingMappingMesh(Physical_Mesh, Lap_Param_Pos, Coords_PullBack):
     '''
@@ -1325,7 +1325,7 @@ def CreatingMappingMesh(Physical_Mesh, Lap_Param_Pos, Coords_PullBack):
     fesV = VectorH1(Physical_Mesh,order=1)
     Pos_Ini = GridFunction(fesV)
     Pos_Ini.Interpolate(CF((x,y)))
-    Coords_Origin = Pos_Transformer(Pos_Ini)
+    Coords_Origin = pos_transformer(Pos_Ini)
     
     # 利用mesh_Mapping将Coords_PullBack拉回并SetDeformation
     Coords_Update = np.zeros(Coords_PullBack.shape)
@@ -1349,7 +1349,7 @@ def lift2sphere(mesh,R=2,Disp=None):
     '''
     Coords = np.array([v.point for v in mesh.vertices])
     if not Disp is None:
-        Coords += Pos_Transformer(Disp)
+        Coords += pos_transformer(Disp)
     ngmesh = ngm.Mesh(dim=3)
     pnums = []
     for v in Coords:
@@ -1393,7 +1393,7 @@ class BGNFixBnd():
     
     def Initial_VTK(self,vtkname):
         T, Time_steps = 1,50   # useless params
-        self.myvtk = Vtk_out_BND(T,min(50,Time_steps),vtkname)
+        self.myvtk = VtkOutBnd(T,min(50,Time_steps),vtkname)
 
     def WeakMCF(self):
         '''
@@ -1426,7 +1426,7 @@ class BGNFixBnd():
                 self.Position.components[i].vec.data += self.Solution.components[1].components[i].vec.data
 
             if self.vtk_bool:
-                self.myvtk.Output(self.mesh,[],0,command='do')
+                self.myvtk.output(self.mesh,[],0,command='do')
 
             self.mesh.SetDeformation(self.Disp)
 
@@ -1461,7 +1461,7 @@ class Mod_Lift_Sphere():
         self.BGN_Mod.Solving(Ntimes)
     
     def ProjDisp(self):
-        Proj_Disp = Pos_Transformer(self.BGN_Mod.Disp,3)
+        Proj_Disp = pos_transformer(self.BGN_Mod.Disp,3)
         Proj_Disp = Proj_Disp[:,:2]
         return Proj_Disp
 

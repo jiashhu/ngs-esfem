@@ -1,7 +1,7 @@
 from ngsolve import *
-from es_utils import GetIdCF
+from es_utils import get_id_cf
 from geometry import Mesh_Info_Parse, DiscreteMesh
-from es_utils import Pos_Transformer, NgMFSave
+from es_utils import pos_transformer, NgMFSave
 from global_utils import LogTime
 import numpy as np
 import os
@@ -48,7 +48,7 @@ class BGN():
         self.dim = self.mesh.dim
         print('mesh dim = {}'.format(self.dim))
         self.BaseX = GridFunction(self.fesV)
-        self.BaseX.Interpolate(GetIdCF(self.dim),definedon=self.mesh.Boundaries(".*"))
+        self.BaseX.Interpolate(get_id_cf(self.dim),definedon=self.mesh.Boundaries(".*"))
         # initial historic info: Position, normal vector(ele), weighted n(ver)
         self.X_old = GridFunction(self.fesV)
         self.Nvec = GridFunction(self.fesV0)
@@ -70,8 +70,8 @@ class BGN():
     def IniWithScale(self,scale):
         # total scale
         self.scale *= scale 
-        Base_Coord = Pos_Transformer(self.BaseX, dim=self.dim)
-        Disp_np = scale * (Base_Coord + Pos_Transformer(self.Disp, dim=self.dim)) - Base_Coord
+        Base_Coord = pos_transformer(self.BaseX, dim=self.dim)
+        Disp_np = scale * (Base_Coord + pos_transformer(self.Disp, dim=self.dim)) - Base_Coord
         self.Disp.vec.data = BaseVector(Disp_np.flatten('F'))
         # only work for 1st order
         self.X_old.vec.data = BaseVector(scale*self.X_old.vec.FV().NumPy())
@@ -105,7 +105,7 @@ class BGN():
 
     def GetNvec(self):
         '''获取Nvec(分片常数)以及NvecD(线性)'''
-        Coords_Update = Pos_Transformer(self.X_old,dim=self.dim)
+        Coords_Update = pos_transformer(self.X_old,dim=self.dim)
         self.DMesh_Obj.UpdateCoords(Coords_Update)
         N_El_matrix, Leng_matrix, Area_matrix = self.DMesh_Obj.N_Area_El()
         self.Area = sum(Area_matrix)
@@ -123,14 +123,14 @@ class BGN():
 
     def Get_Proper_Scale(self):
         # make diameter to be order 1
-        Vertices_Coords = Pos_Transformer(self.X_old, dim=self.dim)
+        Vertices_Coords = pos_transformer(self.X_old, dim=self.dim)
         diam = max(np.linalg.norm(Vertices_Coords,axis=1))
         scale = 1/diam
         return scale
     
     def Get_Proper_dt(self,coef=1,h_opt='min'):
         # order h**2, independent of scale
-        Vertices_Coords = Pos_Transformer(self.X_old, dim=self.dim)
+        Vertices_Coords = pos_transformer(self.X_old, dim=self.dim)
         self.DMesh_Obj.UpdateCoords(Vertices_Coords)
         h = min(np.linalg.norm(self.DMesh_Obj.barvec,axis=1))
         hmean = np.mean(np.linalg.norm(self.DMesh_Obj.barvec,axis=1))
@@ -202,7 +202,7 @@ class BGN_WM(BGN):
         self.kappa, self.X = self.gfu.components
         self.kappa_old, self.X_old = self.gfu_old.components
         self.nu_old = GridFunction(self.fesV)
-        self.Base_Coord = Pos_Transformer(self.BaseX)
+        self.Base_Coord = pos_transformer(self.BaseX)
 
     def IniByDisPos(self):
         # initilize Position and normal and additional mean curvature
@@ -254,7 +254,7 @@ class BGN_WM(BGN):
         while self.t<self.T:
             tauval = self.dt.Get()
             self.mesh.SetDeformation(self.Disp)
-            UpdatedCoords = self.Base_Coord + Pos_Transformer(self.Disp)
+            UpdatedCoords = self.Base_Coord + pos_transformer(self.Disp)
             self.DMesh_Obj.UpdateCoords(UpdatedCoords)
             self.DMesh_Obj.WN_Ver()
             # might be in the negetive direction
@@ -273,9 +273,9 @@ class BGN_WM(BGN):
 
     def PP_Pic(self,vtk_Obj_bnd=None):
         # 后处理： 保存图像
-        perform_res = vtk_Obj_bnd.Output(self.mesh,[],tnow=self.t)
+        perform_res = vtk_Obj_bnd.output(self.mesh,[],tnow=self.t)
         # 后处理： 计算网格质量，利用self.mesh的拓扑关系
         if perform_res:
-            self.DMesh_Obj.UpdateCoords(Pos_Transformer(self.X_old))
+            self.DMesh_Obj.UpdateCoords(pos_transformer(self.X_old))
             Q_Area, Q_Leng = self.DMesh_Obj.MeshQuality()
             self.Mesh_Quality.append([Q_Area,Q_Leng,self.t])

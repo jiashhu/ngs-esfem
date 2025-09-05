@@ -2,12 +2,13 @@ from ngsolve import *
 from ngsolve.comp import IntegrationRuleSpaceSurface
 import numpy as np
 from esfem.ode import BDF
-from es_utils import Pos_Transformer, NgMFSave, SurfacehInterp
-from viz.vtk_out import Vtk_out_BND
+from es_utils import pos_transformer, NgMFSave, SurfacehInterp
+from viz.vtk_out import VtkOutBnd
 from geometry import DiscreteMesh, Param2dRot
 from global_utils import LogTime
 import os
 from tqdm import tqdm
+from geometry.discrete_mesh import Mesh_Info_Parse
 
 class WillMoreMDR():
     def __init__(self, mymesh, T = 1e-4, dt = 1e-4, order = 1, BDForder = 1):
@@ -25,21 +26,21 @@ class WillMoreMDR():
         self.Disp = GridFunction(self.fesV)  # piecewise high order for displacement --- high order isoparametric
         self.scale = 1
 
-        self.IniDefP = GridFunction(self.fesV) # store the initial deformation
+        self.init_deformation = GridFunction(self.fesV) # store the initial deformation
         self.t, self.T, self.finalT = 0, T, 0
         self.dt = Parameter(dt)
         self.lhs, self.rhs = [],[]
         ##              kappa     H        V       z          nu        v
-        self.fesMix = self.fes*self.fes*self.fes*self.fesV*self.fesV*self.fesV
+        self.fes_mix = self.fes*self.fes*self.fes*self.fesV*self.fesV*self.fesV
         ##              kappa      v   单独求解Laplace v = kappa n以及vn = V的方程
         self.fes_vk = self.fes*self.fesV
-        self.gfu    = GridFunction(self.fesMix)
-        self.gfuold = GridFunction(self.fesMix)
+        self.gfu    = GridFunction(self.fes_mix)
+        self.gfuold = GridFunction(self.fes_mix)
         self.kappa,    self.H,    self.V,    self.z,    self.normal, self.velocity = self.gfu.components
         self.kappaold, self.Hold, self.Vold, self.zold, self.nuold,  self.vold     = self.gfuold.components
         
         ## 初始化初始值
-        self.Iniu   = GridFunction(self.fesMix)
+        self.Iniu   = GridFunction(self.fes_mix)
         _, self.IniCurv, self.IniV, self.Iniz, self.IniNormal, self.Iniv = self.Iniu.components
         self.IniX = GridFunction(self.fesV)
         self.BaseX = GridFunction(self.fesV)
@@ -52,7 +53,7 @@ class WillMoreMDR():
         self.BDForder = BDForder
         
         ## For Interpolation 
-        self.hInterp_Obj = SurfacehInterp(self.mesh,self.order)
+        self.interp_obj = SurfacehInterp(self.mesh,self.order)
         self.counter_print = 1
         self.MQ_Measure_Set()
 
@@ -78,39 +79,25 @@ class WillMoreMDR():
         
     def MQ_Measure_Set(self):
         Vertices_Coords = self.Get_Vertices_Coords()
-        self.ElVerInd, self.EdVerInd = self.Mesh_Info_Parse()
+        # self.ElVerInd, self.EdVerInd = self.Mesh_Info_Parse()
+        Obj = Mesh_Info_Parse(self.mesh)
+        self.ElVerInd, self.EdVerInd = Obj['ElVer'], Obj['EdVer']
         self.DMesh_Obj = DiscreteMesh(Vertices_Coords,self.dim-1,self.dim,self.ElVerInd,self.EdVerInd)
         self.Mesh_Quality = []
-              
-    def Mesh_Info_Parse(self):
-        if self.dim==3:
-            ElVerInd = []
-            EdVerInd = []
-            for el in self.mesh.ngmesh.Elements2D():
-                # v.nr 从1开始计数
-                ElVerInd.append([v.nr-1 for v in el.vertices])
-            for ed in self.mesh.edges:
-                # v.nr 从0开始计数（ngmesh与ngsolve.Mesh之间的区别）
-                EdVerInd.append([v.nr for v in ed.vertices])
-            ElVerInd, EdVerInd = np.array(ElVerInd), np.array(EdVerInd)
-        elif self.dim==2:
-            ElVerInd = None
-            EdVerInd = None
-        return ElVerInd, EdVerInd
 
     def Get_Vertices_Coords(self):
         if self.dim==3:
             self.VCoord.Interpolate(CF((x,y,z)),definedon=self.mesh.Boundaries(".*"))
-            Vertices_Coords = Pos_Transformer(self.VCoord,dim=3)
+            Vertices_Coords = pos_transformer(self.VCoord,dim=3)
         elif self.dim==2:
             self.VCoord.Interpolate(CF((x,y)),definedon=self.mesh.Boundaries(".*"))
-            Vertices_Coords = Pos_Transformer(self.VCoord,dim=2)
+            Vertices_Coords = pos_transformer(self.VCoord,dim=2)
         return Vertices_Coords
 
     def Get_Proper_dt(self,coef=1,h_opt='min'):
         # 通过顶点的三角形网格来计算最小边长，然后计算需要的时间步长
         # order h**2, independent of scale
-        Vertices_Coords = Pos_Transformer(self.Disp, dim=self.dim) + Pos_Transformer(self.BaseX, dim=self.dim)
+        Vertices_Coords = pos_transformer(self.Disp, dim=self.dim) + pos_transformer(self.BaseX, dim=self.dim)
         self.DMesh_Obj.UpdateCoords(Vertices_Coords)
         h = min(np.linalg.norm(self.DMesh_Obj.barvec,axis=1))
         hmean = np.mean(np.linalg.norm(self.DMesh_Obj.barvec,axis=1))
@@ -152,8 +139,8 @@ class WillMoreMDR():
 
     def WeakWillmore(self,SD_opt=False,is_unified=True):
         ## Set Curvature
-        kappa , H , V , z, nu, v = self.fesMix.TrialFunction()
-        kappat, Ht, Vt, zt, nut, vt= self.fesMix.TestFunction()
+        kappa , H , V , z, nu, v = self.fes_mix.TrialFunction()
+        kappat, Ht, Vt, zt, nut, vt= self.fes_mix.TestFunction()
 
         ## Weingarten Map
         A0 = grad(self.nuold).Trace()
@@ -167,7 +154,7 @@ class WillMoreMDR():
             n_unified = self.nuold/Norm(self.nuold)
         else:
             n_unified = self.nuold
-        Lhs = BilinearForm(self.fesMix,symmetric=False)
+        Lhs = BilinearForm(self.fes_mix,symmetric=False)
         Lhs += (InnerProduct(v,n_unified)*kappat)*ds-V*kappat*ds
         Lhs += (1/self.dt*H*Ht - InnerProduct(grad(V).Trace(),grad(Ht).Trace()))*ds
         Lhs += (V*Vt + InnerProduct(grad(H).Trace(),grad(Vt).Trace()))*ds
@@ -182,7 +169,7 @@ class WillMoreMDR():
         self.lhs = Lhs
 
         # 计算需要对Hold,nuold设定初值
-        Rhs = LinearForm(self.fesMix)
+        Rhs = LinearForm(self.fes_mix)
         Rhs += Q*Vt*ds
         Rhs += 1/self.dt*self.Hold*Ht*ds 
         Rhs += 1/self.dt*InnerProduct(n_unified,nut)*ds
@@ -192,11 +179,11 @@ class WillMoreMDR():
         Rhs += (InnerProduct(A,A)*InnerProduct(n_unified,zt))*ds
         self.rhs = Rhs
         
-    def PP_Pic(self,vtk_obj:Vtk_out_BND=None):
+    def PP_Pic(self,vtk_obj:VtkOutBnd=None):
         # Post Process: Saving Picture
         pass
 
-    def Solving(self, vtk_obj:Vtk_out_BND=None, sceneu=None):
+    def Solving(self, vtk_obj:VtkOutBnd=None, sceneu=None):
         '''
             从t时间求解到T时间 
         '''
@@ -278,7 +265,7 @@ class WillmoreKLL(WillMoreMDR):
         self.lhs = Lhs
         self.rhs = Rhs
         
-    def Solving(self, vtk_obj:Vtk_out_BND=None, sceneu=None):
+    def Solving(self, vtk_obj:VtkOutBnd=None, sceneu=None):
         '''
             从t时间求解到T时间 
         '''

@@ -1,7 +1,7 @@
 from ngsolve import *
-from es_utils import GetIdCF
+from es_utils import get_id_cf
 from geometry import Mesh_Info_Parse, DiscreteMesh
-from es_utils import Pos_Transformer
+from es_utils import pos_transformer
 import numpy as np
 from global_utils import LogTime
 import os
@@ -43,7 +43,7 @@ class Dziuk():
 
     def Get_Proper_dt(self,coef=1,h_opt='min'):
         # order h**2, independent of scale
-        Vertices_Coords = Pos_Transformer(self.X_old, dim=self.dim)
+        Vertices_Coords = pos_transformer(self.X_old, dim=self.dim)
         self.DMesh_Obj.UpdateCoords(Vertices_Coords)
         h = min(np.linalg.norm(self.DMesh_Obj.barvec,axis=1))
         hmax = max(np.linalg.norm(self.DMesh_Obj.barvec,axis=1))
@@ -70,10 +70,10 @@ class Dziuk():
 
     def PP_Pic(self,vtk_Obj_bnd=None):
         # 后处理： 保存图像
-        perform_res = vtk_Obj_bnd.Output(self.mesh,[],tnow=self.t)
+        perform_res = vtk_Obj_bnd.output(self.mesh,[],tnow=self.t)
         # 后处理： 计算网格质量，利用self.mesh的拓扑关系
         if perform_res:
-            self.DMesh_Obj.UpdateCoords(Pos_Transformer(self.X_old))
+            self.DMesh_Obj.UpdateCoords(pos_transformer(self.X_old))
             Q_Area, Q_Leng = self.DMesh_Obj.MeshQuality()
             self.Mesh_Quality.append([Q_Area,Q_Leng,self.t])
 

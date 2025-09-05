@@ -72,50 +72,50 @@ class Param2dRot():
         Around x axis: (f(phi), g(phi)cos theta, g(phi)sin theta).
         Around z axis: (f(phi)cos theta, f(phi)sin theta, g(phi))
     '''
-    def __init__(self,Spline_Obj:Param1dSpline,axis_opt,c_tag) -> None:
-        self.Spline_Profile_Obj = Spline_Obj
-        self.Rot_Axis = axis_opt
-        self.Closed_Tag = c_tag
+    def __init__(self,spline_obj:Param1dSpline,axis_opt,c_tag) -> None:
+        self.spline_profile_obj = spline_obj
+        self.rot_axis = axis_opt
+        self.is_closed = c_tag
 
-        f, g = self.Spline_Profile_Obj.Xparam, self.Spline_Profile_Obj.Yparam
+        f, g = self.spline_profile_obj.Xparam, self.spline_profile_obj.Yparam
         df, dg = f.diff(phi), g.diff(phi)
         ddf, ddg = df.diff(phi), dg.diff(phi)
         # normal of profile curve
         self.nhat_1 = dg/sym.sqrt(df**2+dg**2)
         self.nhat_2 = -df/sym.sqrt(df**2+dg**2)
-        if self.Rot_Axis == 'x':
-            self.H_sym = -((dg*ddf-ddg*df)/(df**2+dg**2)**(3/2)+df/(g*sym.sqrt(df**2+dg**2)))
-            self.H_np = sym.lambdify(phi, self.H_sym)
+        if self.rot_axis == 'x':
+            self.curvature_sym = -((dg*ddf-ddg*df)/(df**2+dg**2)**(3/2)+df/(g*sym.sqrt(df**2+dg**2)))
+            self.curvature_np = sym.lambdify(phi, self.curvature_sym)
             # metric (orthogonal)
             self.gij = [df**2+dg**2, g**2]
             self.invgij = [1/(df**2+dg**2), 1/g**2]
             self.detg = (df**2+dg**2)*g**2
-        elif self.Rot_Axis == 'z':
+        elif self.rot_axis == 'z':
             # wait for check
-            self.H_sym = -((df*ddg-ddg*dg)/(df**2+dg**2)**(3/2)+dg/(f*sym.sqrt(df**2+dg**2)))
-            self.H_np = sym.lambdify(phi, self.H_sym)
+            self.curvature_sym = -((df*ddg-ddg*dg)/(df**2+dg**2)**(3/2)+dg/(f*sym.sqrt(df**2+dg**2)))
+            self.curvature_np = sym.lambdify(phi, self.curvature_sym)
 
-    def LapS_theta_indep(self,fexpr):
+    def laplace_theta_indep(self,fexpr):
         # surface Laplace of function independent of theta
         Lapf = 1/sym.sqrt(self.detg)*(
             sym.sqrt(self.detg)*self.invgij[0]*fexpr.diff(phi)
         ).diff(phi)
         return Lapf
 
-    def Generate_LapHn_func(self):
+    def laplace_Hn(self):
         self.LapH_func, self.Lapnhat1_func, self.Lapnhat2_func = [
-            sym.lambdify(phi, self.LapS_theta_indep(fexpr)) 
-            for fexpr in [self.H_sym, self.nhat_1, self.nhat_2]
+            sym.lambdify(phi, self.laplace_theta_indep(fexpr)) 
+            for fexpr in [self.curvature_sym, self.nhat_1, self.nhat_2]
         ]
         self.g22nhat2 = sym.lambdify(phi,self.invgij[1]*self.nhat_2)
         n_prim_square = (self.nhat_1.diff(phi))**2+(self.nhat_2.diff(phi))**2
         self.A2_func  = sym.lambdify(phi, self.invgij[0]*n_prim_square + self.invgij[1]*self.nhat_2**2)
     
-    def Get_Lap_H_N(self,phi:np.ndarray, theta:np.ndarray):
+    def get_laplace_H_N(self,phi:np.ndarray, theta:np.ndarray):
         n = len(phi)
         assert len(phi) == len(theta)
         LapH, Lapn = np.zeros((n,1)), np.zeros((n,3))
-        if self.Rot_Axis == 'x':
+        if self.rot_axis == 'x':
             LapH[:,0] = self.LapH_func(phi)
             Lapn[:,0] = self.Lapnhat1_func(phi)
             Lapn[:,1] = self.Lapnhat2_func(phi)*np.cos(theta) - self.g22nhat2(phi)*np.cos(theta)
@@ -123,62 +123,62 @@ class Param2dRot():
             A_Frob = self.A2_func(phi)
         return LapH, Lapn, A_Frob.reshape(-1,1)
 
-    def Get_Profile_Coord(self,Coords3d):
+    def get_profile_coord(self,Coords3d):
         Coord_Profile = np.zeros((Coords3d.shape[0],2))
-        if self.Rot_Axis == 'x':
+        if self.rot_axis == 'x':
             # x-z curve rotate around x axis (f(phi), g(phi)cos theta, g(phi)sin theta)
             Coord_Profile[:,0] = Coords3d[:,0]
             Coord_Profile[:,1] = np.linalg.norm(Coords3d[:,1:],axis=1)
-        elif self.Rot_Axis == 'z':
+        elif self.rot_axis == 'z':
             # x-z curve rotate around z axis (f(phi)cos theta, f(phi)sin theta, g(phi))
             Coord_Profile[:,0] = np.linalg.norm(Coords3d[:,:-1],axis=1)
             Coord_Profile[:,1] = Coords3d[:,2]
         return Coord_Profile
 
-    def Get_Param(self,Coords3d,Near_opt=False):
+    def get_param(self,coords_3d,near_opt=False):
         '''
             Determin Parameter of 3d Coords by Rotation axis and Profile Curve
         '''
-        Coord_Profile = self.Get_Profile_Coord(Coords3d)
-        if self.Rot_Axis == 'x':
+        Coord_Profile = self.get_profile_coord(coords_3d)
+        if self.rot_axis == 'x':
             # x-z curve rotate around x axis (f(phi), g(phi)cos theta, g(phi)sin theta)
-            theta_np = np.arctan2(Coords3d[:,2],Coords3d[:,1])
-        elif self.Rot_Axis == 'z':
+            theta_np = np.arctan2(coords_3d[:,2],coords_3d[:,1])
+        elif self.rot_axis == 'z':
             # x-z curve rotate around z axis (f(phi)cos theta, f(phi)sin theta, g(phi))
-            theta_np = np.arctan2(Coords3d[:,1],Coords3d[:,0])
-        if not Near_opt:
+            theta_np = np.arctan2(coords_3d[:,1],coords_3d[:,0])
+        if not near_opt:
             # point exactly on the profile curve
-            phi_np = self.Spline_Profile_Obj.Get_Param(Coord_Profile)
+            phi_np = self.spline_profile_obj.get_param(Coord_Profile)
         else:
             # point not on the profile curve
-            phi_np = self.Spline_Profile_Obj.Get_Param_Projection(Coord_Profile)
+            phi_np = self.spline_profile_obj.get_param_projection(Coord_Profile)
         return phi_np, theta_np
 
-    def Get_Pos_Norm(self,phi:np.ndarray, theta:np.ndarray):
+    def get_pos_norm(self,phi:np.ndarray, theta:np.ndarray):
         n = len(phi)
         assert len(phi) == len(theta)
-        Pos_Profile, Norm_Profile = self.Spline_Profile_Obj.Generate_Pos_Norm(phi)
+        Pos_Profile, Norm_Profile = self.spline_profile_obj.Generate_Pos_Norm(phi)
         Pset, Normset = np.zeros((n,3)), np.zeros((n,3))
-        if self.Rot_Axis == 'x':
+        if self.rot_axis == 'x':
             Pset[:,0] = Pos_Profile[:,0]
             Pset[:,1] = Pos_Profile[:,1]*np.cos(theta)
             Pset[:,2] = Pos_Profile[:,1]*np.sin(theta)
             Normset[:,0] = Norm_Profile[:,0]
             Normset[:,1] = Norm_Profile[:,1]*np.cos(theta)
             Normset[:,2] = Norm_Profile[:,1]*np.sin(theta)
-        elif self.Rot_Axis == 'z':
+        elif self.rot_axis == 'z':
             print('Rotation around z-s Normal is not available yet!')
         return Pset, Normset
     
     def Generate_Mesh(self,maxh,order,RN=0,Local_h=None):
-        if self.Rot_Axis == 'x':
+        if self.rot_axis == 'x':
             axis_0, axis_1 = Pnt(0,0,0), Pnt(1,0,0)
-        elif self.Rot_Axis == 'z':
+        elif self.rot_axis == 'z':
             axis_0, axis_1 = Pnt(0,0,0), Pnt(0,0,1)
         spline = SplineCurve2d() # create a 2d spline
         # define the control points -- anti clockwise
-        ctrbase, ctr = self.Spline_Profile_Obj.ctrbase, self.Spline_Profile_Obj.ctr
-        if self.Closed_Tag == False:
+        ctrbase, ctr = self.spline_profile_obj.ctrbase, self.spline_profile_obj.ctr
+        if self.is_closed == False:
             # open spline on x-axis, rotate around x-axis
             ctrbase[-1,-1] = 0
             ctrbase[0,-1] = 0

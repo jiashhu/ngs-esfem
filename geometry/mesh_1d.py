@@ -111,7 +111,7 @@ class CircleMesh():
         self.SInterp = SurfacehInterp(mymesh,order=order)
         if order > 1:
             # coords on the polygon
-            Coord_interp_quad = self.SInterp.GetCoordsQuad()
+            Coord_interp_quad = self.SInterp.get_coords_quad()
             # quadrature nodes in [0,1] -- 1d case
             self.quad_ws = np.array(self.SInterp.irs[SEGM].points)
             # compute the image of quadrature nodes after ak (isoparametric mapping)
@@ -129,8 +129,8 @@ class CircleMesh():
                             self.IsoProjQP(self.quad_ws,np.vstack([xstarts,xends]),order=order)]
                         )
             disp_np = trans_quad_nodes-Coord_interp_quad
-            self.ini_disp.vec.data = BaseVector(np.append(self.SInterp.Return2L2(disp_np[:,0]),
-                                                    self.SInterp.Return2L2(disp_np[:,1])))
+            self.ini_disp.vec.data = BaseVector(np.append(self.SInterp.return_l2(disp_np[:,0]),
+                                                    self.SInterp.return_l2(disp_np[:,1])))
 
     def InterpHo(self, func):
         '''
@@ -156,7 +156,7 @@ class CircleMesh():
                     Val_QP = Val_QP_El.copy()
                 else:
                     Val_QP = np.hstack([Val_QP,Val_QP_El])
-            hoGFnp = self.SInterp.Return2L2(Val_QP)
+            hoGFnp = self.SInterp.return_l2(Val_QP)
         elif self.order == 1:
             hoGFnp = np.array([func(xx) for xx in self.vertices])
         return hoGFnp
@@ -166,7 +166,7 @@ class CircleMesh():
             Get the position of dofs of the isoparametric surface from the deformed surface mesh by SInterp
         '''
         # Get poisition of quadrature nodes on the deformed surface
-        Coord_interp_quad = self.SInterp.GetCoordsQuad()
+        Coord_interp_quad = self.SInterp.get_coords_quad()
         
 class EllipseMesh(CircleMesh):
     '''
@@ -203,7 +203,7 @@ class EllipseMesh(CircleMesh):
             assert(x.shape[1]==2)
         except:
             print('second dimension of x should be 2!!')
-        theta_set = self.CurveObj.Get_Param_Projection(x)
+        theta_set = self.CurveObj.get_param_projection(x)
         ProjPos = np.hstack([self.CurveObj.Param_np[0](theta_set),self.CurveObj.Param_np[1](theta_set)])
         return ProjPos
 

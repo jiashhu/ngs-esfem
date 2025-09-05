@@ -1,8 +1,8 @@
 from ..mcf_mdr import LapVDNMCF_v2
 from ngsolve import *
 from geometry import Param2dRot
-from es_utils import Pos_Transformer
-from esfem.ale import Vtk_out_BND
+from es_utils import pos_transformer
+from esfem.ale import VtkOutBnd
 from ..bgn import BGN_MCF
 
 class DumbbellLapVMCF(LapVDNMCF_v2):
@@ -14,14 +14,14 @@ class DumbbellLapVMCF(LapVDNMCF_v2):
         # mean curvature of the rotational geometry
         self.H_np = self.Dumbbell2d.H_np
 
-    def PP_Pic(self,vtk_Obj_bnd:Vtk_out_BND=None):
+    def PP_Pic(self,vtk_Obj_bnd:VtkOutBnd=None):
         self.Compu_HN_ByDisPos(opt=self.Reset_opt)
         # 后处理： 保存图像
-        perform_res = vtk_Obj_bnd.Output(self.mesh,[self.H_X,self.Hold,self.err_H_0,self.n_Norm,self.vTNorm,self.n_err],tnow=self.t,names=['BGN','Hold','eH2_old','nNorm','vTNorm','en2_old'])
+        perform_res = vtk_Obj_bnd.output(self.mesh,[self.H_X,self.Hold,self.err_H_0,self.n_Norm,self.vTNorm,self.n_err],tnow=self.t,names=['BGN','Hold','eH2_old','nNorm','vTNorm','en2_old'])
         # 后处理： 计算网格质量，利用self.mesh的拓扑关系
         if perform_res:
             self.VCoord.Interpolate(CF((x,y,z)),definedon=self.mesh.Boundaries(".*"))
-            self.DMesh_Obj.UpdateCoords(Pos_Transformer(self.VCoord,dim=3))
+            self.DMesh_Obj.UpdateCoords(pos_transformer(self.VCoord,dim=3))
             Q_Area, Q_Leng = self.DMesh_Obj.MeshQuality()
             self.Area_set.append([self.DMesh_Obj.Area,self.t,self.scale])
             self.Mesh_Quality.append([Q_Area,Q_Leng,self.t])
@@ -284,7 +284,7 @@ class DumbbellLapVMCF_N_modified(DumbbellLapVMCF):
     def __init__(self, mymesh, Geo_Rot_Obj: Param2dRot, T=0.0001, dt=0.0001, order=1, BDForder=1):
         super().__init__(mymesh, Geo_Rot_Obj, T, dt, order, BDForder)
     
-    def Solving(self, vtk_obj: Vtk_out_BND = None):
+    def Solving(self, vtk_obj: VtkOutBnd = None):
         while self.t<self.T:
             tauval = self.dt.Get()
             self.lhs.Assemble()
@@ -336,12 +336,12 @@ class Dumbbell_BGN_MCF(BGN_MCF):
     def __init__(self, mymesh, T=0.0001, dt=0.0001):
         super().__init__(mymesh, T, dt)
 
-    def PP_Pic(self,vtk_Obj_bnd:Vtk_out_BND=None):
+    def PP_Pic(self,vtk_Obj_bnd:VtkOutBnd=None):
         # 后处理： 保存图像
-        perform_res = vtk_Obj_bnd.Output(self.mesh,[],tnow=self.t)
+        perform_res = vtk_Obj_bnd.output(self.mesh,[],tnow=self.t)
         # 后处理： 计算网格质量，利用self.mesh的拓扑关系
         if perform_res:
-            self.DMesh_Obj.UpdateCoords(Pos_Transformer(self.X_old,dim=3))
+            self.DMesh_Obj.UpdateCoords(pos_transformer(self.X_old,dim=3))
             Q_Area, Q_Leng = self.DMesh_Obj.MeshQuality()
             self.Area_set.append([self.DMesh_Obj.Area,self.t,self.scale])
             self.Mesh_Quality.append([Q_Area,Q_Leng,self.t])
@@ -350,12 +350,12 @@ class Dumbbell_BGN_MCF_Mod(BGN_MCF):
     def __init__(self, mymesh, T=0.0001, dt=0.0001):
         super().__init__(mymesh, T, dt)
     
-    def PP_Pic(self,vtk_Obj_bnd:Vtk_out_BND=None):
+    def PP_Pic(self,vtk_Obj_bnd:VtkOutBnd=None):
         # 后处理： 保存图像
-        perform_res = vtk_Obj_bnd.Output(self.mesh,[],tnow=self.t)
+        perform_res = vtk_Obj_bnd.output(self.mesh,[],tnow=self.t)
         # 后处理： 计算网格质量，利用self.mesh的拓扑关系
         if perform_res:
-            self.DMesh_Obj.UpdateCoords(Pos_Transformer(self.X_old,dim=3))
+            self.DMesh_Obj.UpdateCoords(pos_transformer(self.X_old,dim=3))
             Q_Area, Q_Leng = self.DMesh_Obj.MeshQuality()
             self.Mesh_Quality.append([Q_Area,Q_Leng,self.t])
     

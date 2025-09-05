@@ -138,19 +138,6 @@ def Coord1dFlower(n_half_blade,num_blade=7,radparam=0.65):
     return p,PhiTot
 
 
-def Mesh_Info_Parse(mesh):
-    ElVerInd = []
-    EdVerInd = []
-    for el in mesh.ngmesh.Elements2D():
-        # v.nr 从1开始计数
-        ElVerInd.append([v.nr-1 for v in el.vertices])
-    for ed in mesh.edges:
-        # v.nr 从0开始计数（ngmesh与ngsolve.Mesh之间的区别）
-        EdVerInd.append([v.nr for v in ed.vertices])
-    return np.array(ElVerInd), np.array(EdVerInd)
-
-
-
 class D1_FlowerCurve(Param1dCurve):
     '''
         一维的花型曲线：一种特殊的一维参数曲线

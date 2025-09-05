@@ -74,7 +74,7 @@ class AngenentTorusProfile():
     def Generate_Param_Profile(self,sparam):
         '''
             Input: theta: ndarray for parametrization of circle, 
-            Output: ndarray for position of points on profile of Angenent Torus.
+            output: ndarray for position of points on profile of Angenent Torus.
             rho' = sin alpha, z' = cos alpha.
         '''        
         newrho = self.rhot(sparam)
@@ -88,7 +88,7 @@ class AngenentTorusProfile():
             phi: param for profile curve, 
             theta: rotational angle,
             sscaled = t for the shooting method.
-            Output: Coordinates, Normals and Mean Curvature
+            output: Coordinates, Normals and Mean Curvature
         '''
         Coord3d = np.zeros((len(phi),3))
         sscaled = phi/(2*np.pi)*self.Tmax

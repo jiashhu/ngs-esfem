@@ -8,3 +8,4 @@ from .discrete_mesh import *
 from .param_curve import *
 from .angenent import *
 from .g1dMesh import *
+from .param_surface import *
