@@ -31,7 +31,7 @@ class WillmoreMDRRot(WillMoreMDR):
         pointwise_curvature   = geo_rot_obj.H_np(phi_np).reshape(-1,1)
         # compute pointwise LapH and Lapn
         geo_rot_obj.Generate_LapHn_func()
-        laplace_curvature, laplace_norm, weingarten_norm = geo_rot_obj.Get_Lap_H_N(phi_np, theta_np)
+        laplace_curvature, laplace_norm, weingarten_norm = geo_rot_obj.get_laplace_H_N(phi_np, theta_np)
         # z 是 ∆n + |A|^2 n
         pointwise_z       = laplace_norm + weingarten_norm * laplace_norm
         pointwise_V       = laplace_curvature - 1/2*pointwise_curvature**3 \
