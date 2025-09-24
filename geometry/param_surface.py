@@ -49,77 +49,77 @@ class ParamSurface:
             tol: Tolerance for convergence (norm of parameter update)
         
         Returns:
-            tuple: (phi_values, psi_values), arrays of shape (n,) with projected parameters
+            tuple: (phi_values, psi_values, points, tol_info)
         """
         # Get initial guesses from k-d tree
         distances, indices = self.tree.query(query_points, k=1)
         phi_values = self.phi_samples[indices].copy()
         psi_values = self.psi_samples[indices].copy()
 
-        # Track which points have converged
         n_points = query_points.shape[0]
         converged = np.zeros(n_points, dtype=bool)
-        
-        # Newton iterations
+
+        delta = np.zeros((n_points, 2))  # 存放 Newton 步长
+
         for _ in range(max_iter):
-            # Skip converged points
             if converged.all():
                 break
-                
+
             # Evaluate surface points s(phi, psi)
-            s = self.param_np(phi_values, psi_values)  # Shape (n, 3)
+            s = self.param_np(phi_values, psi_values)  # (n, 3)
 
-            # Compute residuals (s - q)
-            residuals = s - query_points  # Shape (n, 3)
+            # Residuals
+            residuals = s - query_points  # (n, 3)
 
-            # Compute Jacobians for all points, ijk: k index; i: axis; j: derivative
-            J = np.array(self.jacobian_func(phi_values, psi_values))  # Shape (n, 3, 2)
+            # Jacobians: (n, 3, 2)
+            J = np.array(self.jacobian_func(phi_values, psi_values))
 
-            # Compute gradient: 2 * J^T @ residual grad of the distance
-            grad_f = 2 * np.einsum('jik,kj->ki', J, residuals)  # Shape (n, 2)
+            # Gradient: (n, 2)
+            grad_f = 2 * np.einsum('nij,ni->nj', J, residuals)
 
-            hessian_f = self.hessian_func(phi_values,psi_values,query_points[:,0],
-                                         query_points[:,1],query_points[:,2])
+            # Hessians: (n, 2, 2)
+            hessian_f = self.hessian_func(
+                phi_values, psi_values,
+                query_points[:, 0], query_points[:, 1], query_points[:, 2]
+            )
+            hessian_f = np.transpose(hessian_f, (2, 0, 1))
 
-            hessian_f = np.transpose(hessian_f, (2, 0, 1))  # 形状 (4000, 2, 2)
+            # 只考虑未收敛的点
+            active = ~converged
+            if not active.any():
+                break
 
-            det_H = np.linalg.det(hessian_f) # 形状 (4000,)
-
+            # 检查 Hessian 是否可逆
+            det_H = np.linalg.det(hessian_f[active])
             valid = np.abs(det_H) > 1e-6
-            # Initialize updates
-            delta = np.zeros((n_points, 2))
 
-            # Compute Newton step for valid points
+            # 计算 Newton 步长（只对 active & valid 点）
+            delta[active] = 0.0
             if valid.any():
-                # Solve H @ delta = -grad_f for valid points
-                delta[valid] = np.linalg.solve(hessian_f[valid], -grad_f[valid])
+                idx_active = np.where(active)[0][valid]
+                delta[idx_active] = np.linalg.solve(
+                    hessian_f[idx_active], -grad_f[idx_active]
+                )
 
-            # Update parameters where not converged
-            update_mask = (~converged) & (np.linalg.norm(delta, axis=1) > tol)
+            # 更新参数
+            delta_norms = np.linalg.norm(delta, axis=1)
+            update_mask = active & (delta_norms > tol)
             phi_values[update_mask] += delta[update_mask, 0]
             psi_values[update_mask] += delta[update_mask, 1]
 
-            # Clamp parameters to valid ranges
-#             phi_values = np.clip(phi_values, self.phi_lim[0], self.phi_lim[1])
-#             psi_values = np.clip(psi_values, self.psi_lim[0], self.psi_lim[1])
+            # 标记收敛
+            converged[active & (delta_norms <= tol)] = True
 
-            # Update convergence status
-            converged[update_mask] = np.linalg.norm(delta[update_mask], axis=1) < tol
-
-        # 计算最终曲面点
+        # 最终投影点
         points = self.param_np(phi_values, psi_values)
 
-        if not max_iter == 0:
-            # 记录未收敛点的容差信息
-            tol_info = {
-                'non_converged_indices': np.where(~converged)[0],
-                'final_delta_norms': np.linalg.norm(delta[~converged], axis=1)
-            }
-        else:
-            tol_info = {}
+        tol_info = {
+            'non_converged_indices': np.where(~converged)[0],
+            'final_delta_norms': np.linalg.norm(delta[~converged], axis=1)
+        } if max_iter > 0 else {}
+
         return phi_values, psi_values, points, tol_info
-    
-    
+
     def get_coarse_param(self, query_points):
         distances, indices = self.tree.query(query_points, k=1) 
         return distances, indices
