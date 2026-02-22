@@ -289,7 +289,7 @@ class DumbbellLapVMCF_N_modified(DumbbellLapVMCF):
             tauval = self.dt.Get()
             self.lhs.Assemble()
             self.rhs.Assemble()
-            self.gfu.vec.data = self.lhs.mat.Inverse(inverse="pardiso")*self.rhs.vec
+            self.gfu.vec.data = self.lhs.mat.Inverse(inverse="umfpack")*self.rhs.vec
     
             ## Update the Mean curvature and Normal vector old (used in weak formulation)
             testvec = sum(self.H.vec.FV().NumPy())
@@ -388,7 +388,7 @@ class Dumbbell_BGN_MCF_Mod(BGN_MCF):
             self.GetNvec()
             self.lhs.Assemble()
             self.rhs.Assemble()
-            self.Solution.vec.data = self.lhs.mat.Inverse(inverse="pardiso")*self.rhs.vec
+            self.Solution.vec.data = self.lhs.mat.Inverse(inverse="umfpack")*self.rhs.vec
 
             self.Disp.vec.data = BaseVector(self.Disp.vec.FV().NumPy() + tauval*self.Solution.components[1].vec.FV().NumPy())
             self.X_old.vec.data = BaseVector(self.X_old.vec.FV().NumPy() + tauval*self.Solution.components[1].vec.FV().NumPy())

@@ -262,35 +262,6 @@ def MoreEllipseInRect(msize,bndname='bnd'):
     mesh = Mesh(geo.GenerateMesh(maxh=msize))
     return mesh, ctr_point_set
 
-def Ellipse(msize,bndname='bnd'):
-    geo = SplineGeometry()
-    ctr_point = [(2,0), (2,1), (0,1), (-2,1), (-2,0), 
-                (-2,-1), (0,-1), (2,-1)]
-    ctr_point = [(0.25*x, 0.25*y) for x,y in ctr_point]
-    p1,p2,p3,p4,p5,p6,p7,p8 = [ geo.AppendPoint(x,y) for x,y in ctr_point]
-    geo.Append (["spline3", p1, p2, p3],bc=bndname,
-                     leftdomain=1, rightdomain=0)
-    geo.Append (["spline3", p3, p4, p5],bc=bndname,
-                     leftdomain=1, rightdomain=0)
-    geo.Append (["spline3", p5, p6, p7],bc=bndname,
-                     leftdomain=1, rightdomain=0)
-    geo.Append (["spline3", p7, p8, p1],bc=bndname,
-                     leftdomain=1, rightdomain=0)
-    # geo.SetMaterial (1, "outer")
-    mesh = Mesh(geo.GenerateMesh(maxh=msize))
-    return mesh, ctr_point
-
-def Circle(msize,bndname='bnd'):
-    geo = SplineGeometry()
-    geo.AddCircle(c=(0,0),
-                r=1,
-                bc=bndname,
-                leftdomain=1,
-                rightdomain=0)
-    geo.SetMaterial(1, "inner")
-    mesh = Mesh(geo.GenerateMesh(maxh=msize))
-    return mesh
-
 def QuatrefoilInRect(msize,bndname='bnd',hInterface=None,csafty=1,rin=0.1,theta=0):
     if hInterface is not None:
         pass
@@ -841,7 +812,7 @@ class HarmonicPullingBack(Extension):
         rhs += -InnerProduct(grad(g0),grad(V))*dx
         lhs.Assemble()
         rhs.Assemble()
-        Harmonic_map.vec.data = g0.vec + lhs.mat.Inverse(inverse="pardiso",freedofs=fesVector.FreeDofs())*rhs.vec
+        Harmonic_map.vec.data = g0.vec + lhs.mat.Inverse(inverse="umfpack",freedofs=fesVector.FreeDofs())*rhs.vec
         return pos_transformer(Harmonic_map)
 
     def PreMeshMod(self,Coords_Origin_A):
@@ -1012,7 +983,7 @@ class HarmonicPullingBackQIR(Extension):
         rhs += -InnerProduct(grad(g0),grad(V))*dx   
         lhs.Assemble() 
         rhs.Assemble() 
-        Harmonic_map.vec.data = g0.vec + lhs.mat.Inverse(inverse="pardiso",freedofs=fesVector.FreeDofs())*rhs.vec 
+        Harmonic_map.vec.data = g0.vec + lhs.mat.Inverse(inverse="umfpack",freedofs=fesVector.FreeDofs())*rhs.vec 
         return pos_transformer(Harmonic_map) 
     
     def CoordB_Recover(self):
@@ -1188,7 +1159,7 @@ class HarmonicPullingBackQIRParametric():
         g0.Interpolate(CF((x,y)),definedon=self.ParamMesh.Boundaries('bnd|b|t|r|l'))
         lhs.Assemble()
         rhs.Assemble()
-        sol.vec.data = lhs.mat.Inverse(self.fesV.FreeDofs(),inverse='pardiso')*rhs.vec + g0.vec
+        sol.vec.data = lhs.mat.Inverse(self.fesV.FreeDofs(),inverse='umfpack')*rhs.vec + g0.vec
         return sol
 
     def SolvingHarmonicOnMesh(self,mesh,Init_opt=False):
@@ -1245,7 +1216,7 @@ class HarmonicPullingBackQIRParametric():
         rhs += -InnerProduct(grad(g0),grad(V))*dx   
         lhs.Assemble() 
         rhs.Assemble() 
-        Harmonic_map.vec.data = g0.vec + lhs.mat.Inverse(inverse="pardiso",freedofs=PDfesV.FreeDofs())*rhs.vec 
+        Harmonic_map.vec.data = g0.vec + lhs.mat.Inverse(inverse="umfpack",freedofs=PDfesV.FreeDofs())*rhs.vec 
         return pos_transformer(Harmonic_map) 
 
     def PreMeshMod(self,Coords_Origin_A):
@@ -1418,7 +1389,7 @@ class BGNFixBnd():
         for ii in range(n):
             self.lhs.Assemble()
             self.rhs.Assemble()
-            self.Solution.vec.data = self.lhs.mat.Inverse(self.fesMix.FreeDofs(),inverse="pardiso")*self.rhs.vec
+            self.Solution.vec.data = self.lhs.mat.Inverse(self.fesMix.FreeDofs(),inverse="umfpack")*self.rhs.vec
 
             ## Solution.components[1] 代表的是X^m+1-X^m
             for i in range(self.dim):

@@ -81,6 +81,9 @@ Notable examples include:
 - [`geometry/MGen/PFEM-MDR-Perturbed-Torus-Beads.ipynb`](geometry/MGen/PFEM-MDR-Perturbed-Torus-Beads.ipynb)  
   → Perturbed torus with **beads-like geometric features**.
 
+- [`geometry/MGen/AngenentTorus.ipynb`](geometry/MGen/AngenentTorus.ipynb)  
+  → Shooting method to generate **Angenent Torus**.
+
 - [`geometry/MGen/PFEM-MDR-Perturbed-Torus-Wave.ipynb`](geometry/MGen/PFEM-MDR-Perturbed-Torus-Wave.ipynb)  
   → Perturbed torus with **strong wave-like deformations** (large-amplitude twisting).
 
@@ -88,6 +91,13 @@ Notable examples include:
   → Demonstration of the parametric surface class and its discretization.
 
 These notebooks can be viewed as a **geometry and mesh generation gallery**, and serve as templates for constructing new initial surfaces for ESFEM-based simulations.
+
+
+## 一些特殊曲面类的生成
+
+`param_surface` 中的 `ParamSurface` 类用于生成 **参数化的二维曲面**。[说明参考](geometry/tutorial/ParamSurface.ipynb)
+
+
 
 ---
 

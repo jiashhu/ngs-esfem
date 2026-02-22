@@ -88,7 +88,7 @@ class Dziuk():
             self.mesh.SetDeformation(self.Disp)
             self.lhs.Assemble()
             self.rhs.Assemble()
-            self.Solution.vec.data = self.lhs.mat.Inverse(inverse="pardiso")*self.rhs.vec
+            self.Solution.vec.data = self.lhs.mat.Inverse(inverse="umfpack")*self.rhs.vec
 
             ## Solution.vec 代表的是X^m+1
             self.Disp.vec.data = BaseVector(self.Disp.vec.FV().NumPy() 

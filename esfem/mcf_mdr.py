@@ -124,7 +124,7 @@ class LapVDNMCF_v2():
         v_rhs = LinearForm(self.fes_vk)
         v_rhs += -self.Hold*kappat*ds
         gfu = GridFunction(self.fes_vk)
-        gfu.vec.data = v_lhs.Assemble().mat.Inverse(inverse="pardiso")*(v_rhs.Assemble().vec)
+        gfu.vec.data = v_lhs.Assemble().mat.Inverse(inverse="umfpack")*(v_rhs.Assemble().vec)
         self.vold.vec.data = gfu.components[-1].vec
         
     def Compu_HN_ByDisPos(self,opt):
@@ -144,7 +144,7 @@ class LapVDNMCF_v2():
             lhs += H_trial*H_test*ds
             lhs.Assemble()
             rhs.Assemble()
-            self.H_X.vec.data = lhs.mat.Inverse(inverse='pardiso')*rhs.vec
+            self.H_X.vec.data = lhs.mat.Inverse(inverse='umfpack')*rhs.vec
         elif opt == 'Interp':
             self.H_X = GridFunction(self.fes)
             self.H_X.Interpolate(-Trace(specialcf.Weingarten(3)),definedon=self.mesh.Boundaries('.*'))
@@ -157,7 +157,7 @@ class LapVDNMCF_v2():
             lhs += H_trial*H_test*ds
             lhs.Assemble()
             rhs.Assemble()
-            self.H_X.vec.data = lhs.mat.Inverse(inverse='pardiso')*rhs.vec
+            self.H_X.vec.data = lhs.mat.Inverse(inverse='umfpack')*rhs.vec
 
         # Compute error of the mean curvature and the normal
         self.err_H_0 = GridFunction(self.fes)
@@ -311,7 +311,7 @@ class LapVDNMCF_v2():
             tauval = self.dt.Get()
             self.lhs.Assemble()
             self.rhs.Assemble()
-            self.gfu.vec.data = self.lhs.mat.Inverse(inverse="pardiso")*self.rhs.vec
+            self.gfu.vec.data = self.lhs.mat.Inverse(inverse="umfpack")*self.rhs.vec
     
             ## Update the Mean curvature and Normal vector old (used in weak formulation)
             self.Hold.vec.data = self.H.vec

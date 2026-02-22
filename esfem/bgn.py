@@ -148,7 +148,7 @@ class BGN():
             self.GetNvec()
             self.lhs.Assemble()
             self.rhs.Assemble()
-            self.Solution.vec.data = self.lhs.mat.Inverse(inverse="pardiso")*self.rhs.vec
+            self.Solution.vec.data = self.lhs.mat.Inverse(inverse="umfpack")*self.rhs.vec
 
             ## Solution.components[1] 代表的是X^m+1-X^m
             self.Disp.vec.data = BaseVector(self.Disp.vec.FV().NumPy() + self.Solution.components[1].vec.FV().NumPy())
@@ -212,7 +212,7 @@ class BGN_WM(BGN):
         self.WeakCurvature_Ini()
         self.H_Lhs.Assemble()
         self.H_Rhs.Assemble()
-        self.kappa_old.vec.data = self.H_Lhs.mat.Inverse(inverse='pardiso')*self.H_Rhs.vec
+        self.kappa_old.vec.data = self.H_Lhs.mat.Inverse(inverse='umfpack')*self.H_Rhs.vec
 
     def WeakWeigarten(self):
         '''
@@ -262,7 +262,7 @@ class BGN_WM(BGN):
             # solving Position and mean curvature using grad(nu) as Weingarten mapping
             self.WM_Lhs.Assemble()
             self.WM_Rhs.Assemble()
-            self.gfu.vec.data = self.WM_Lhs.mat.Inverse(inverse='pardiso')*self.WM_Rhs.vec
+            self.gfu.vec.data = self.WM_Lhs.mat.Inverse(inverse='umfpack')*self.WM_Rhs.vec
             self.Disp.vec.data += self.X.vec - self.X_old.vec
             # update position and mean curvature
             self.gfu_old.vec.data = self.gfu.vec

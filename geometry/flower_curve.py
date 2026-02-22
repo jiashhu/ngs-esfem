@@ -1,5 +1,6 @@
 from scipy.sparse import coo_matrix
 import math
+from .param_curve import Param1dCurve
 
 class FlowerCurveMesh:
     def __init__(self, box, nnode, dt, symm, a=0.65, b=7):
@@ -120,7 +121,6 @@ class FlowerCurveMesh:
         p[:,1] = self.Par_func[1](phi)
         return p,PhiTot
 
-
 def Coord1dFlower(n_half_blade,num_blade=7,radparam=0.65):
     '''
         生成花型网格，输入参数为对称的半个叶片曲线上的采样点个数。输出 p: nx2 坐标矩阵； PhiTot: 极角坐标
@@ -136,7 +136,6 @@ def Coord1dFlower(n_half_blade,num_blade=7,radparam=0.65):
             break
     p,PhiTot = EquivMesh.SymmetryMesh()
     return p,PhiTot
-
 
 class D1_FlowerCurve(Param1dCurve):
     '''
