@@ -1,7 +1,7 @@
 #!/bin/zsh
 
 # 镜像名字
-IMAGE_NAME="esfem-ngs"
+IMAGE_NAME="my-ngsxfem"
 
 # 如果第一个参数是 "build"，则构建镜像，首次运行时需要构建，运行 ./sh run-image.sh build
 if [ "$1" = "build" ]; then

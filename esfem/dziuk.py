@@ -36,7 +36,9 @@ class Dziuk():
 
     def MQ_Measure_Set(self):
         Vertices_Coords = np.array([v.point for v in self.mesh.vertices])
-        self.ElVerInd, self.EdVerInd = Mesh_Info_Parse(self.mesh)
+        # self.ElVerInd, self.EdVerInd = Mesh_Info_Parse(self.mesh)
+        Mesh_Info = Mesh_Info_Parse(self.mesh)
+        self.ElVerInd, self.EdVerInd = Mesh_Info["ElVer"], Mesh_Info["EdVer"]
         self.DMesh_Obj = DiscreteMesh(Vertices_Coords,self.dim-1,self.dim,self.ElVerInd,self.EdVerInd)
         self.Mesh_Quality = []
         self.Area_set  = []

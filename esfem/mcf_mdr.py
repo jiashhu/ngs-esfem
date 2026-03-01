@@ -8,7 +8,7 @@ from global_utils import LogTime
 from ._unsolved_pack import *
 import os
 
-class LapVDNMCF_v2():
+class MCF_MDR():
     '''
         Algorithm: Laplace v = kappa n, Mean curvature flow case Curvature convention: sphere of radius R: 2/R.
     '''
@@ -74,7 +74,7 @@ class LapVDNMCF_v2():
         Coords3d[:,0] = gfuirx.vec.FV().NumPy()
         Coords3d[:,1] = gfuiry.vec.FV().NumPy()
         Coords3d[:,2] = gfuirz.vec.FV().NumPy()
-        phi_np, theta_np = Geo_Rot_Obj.Get_Param(Coords3d,Near_opt=True)
+        phi_np, theta_np = Geo_Rot_Obj.get_param(Coords3d,near_opt=True)
         Pset, Normset = Geo_Rot_Obj.get_pos_norm(phi_np, theta_np)
         DefCoords = Pset-Coords3d
         tmpfunc = lambda x: self.return_l2(x)
@@ -82,8 +82,8 @@ class LapVDNMCF_v2():
         ModNGridx,ModNGridy,ModNGridz = map(tmpfunc,[Normset[:,0],Normset[:,1],Normset[:,2]])
         DefPosx,DefPosy,DefPosz = map(tmpfunc,[DefCoords[:,0],DefCoords[:,1],DefCoords[:,2]])
         # Mean curvature of the modified points
-        phi_np, _ = Geo_Rot_Obj.Get_Param(Pset)
-        IntCurvature = Geo_Rot_Obj.H_np(phi_np)
+        phi_np, _ = Geo_Rot_Obj.get_param(Pset)
+        IntCurvature = Geo_Rot_Obj.curvature_np(phi_np)
         ModCurv = tmpfunc(IntCurvature)
         # Initial deformation
         self.DefPos = GridFunction(self.fesV) # store the initial deformation
@@ -114,32 +114,34 @@ class LapVDNMCF_v2():
     
     def LapvSet(self):
         '''
-            Solving Laplace v = kappa n; v n = -H, after Hold and nuold are set
+            Solving ∆ v = kappa n; v n = -H, after Hold and nuold are set
         '''
         kappa, v = self.fes_vk.TrialFunction()
         kappat, vt = self.fes_vk.TestFunction()
-        v_lhs = BilinearForm(self.fes_vk, symmetric=True)
-        v_lhs += (InnerProduct(grad(v).Trace(),grad(vt).Trace()) + kappa*InnerProduct(self.nuold, vt)\
-                 + kappat*InnerProduct(self.nuold,v))*ds
+        v_lhs = BilinearForm(self.fes_vk)
+        v_lhs += (InnerProduct(grad(v).Trace(),grad(vt).Trace())\
+                + kappa*InnerProduct(self.nuold, vt)\
+                - kappat*InnerProduct(self.nuold, v))*ds
         v_rhs = LinearForm(self.fes_vk)
-        v_rhs += -self.Hold*kappat*ds
+        v_rhs += self.Hold*kappat*ds
         gfu = GridFunction(self.fes_vk)
         gfu.vec.data = v_lhs.Assemble().mat.Inverse(inverse="umfpack")*(v_rhs.Assemble().vec)
         self.vold.vec.data = gfu.components[-1].vec
         
-    def Compu_HN_ByDisPos(self,opt):
+    def Compu_HN_ByDisPos(self,opt='Rel'):
         self.n_X = GridFunction(self.fesV)
         # specialcf.normal(3): inward normal vector field
-        self.n_X.Interpolate(-specialcf.normal(3),definedon=self.mesh.Boundaries('.*'))
+        self.n_X.Set(-specialcf.normal(3),definedon=self.mesh.Boundaries('.*'))
         # self.DMesh_Obj.N_Area_El()
         
         if opt == 'Rel':
             id_X = GridFunction(self.fesV)
-            id_X.Interpolate(CF((x,y,z)),definedon=self.mesh.Boundaries('.*'))
+            id_X.Set(CF((x,y,z)),definedon=self.mesh.Boundaries('.*'))
             H_trial, H_test = self.fes.TnT()
             self.H_X = GridFunction(self.fes)
             rhs = LinearForm(self.fes)
-            rhs += InnerProduct(grad(id_X).Trace(),grad(self.n_X).Trace())*H_test*ds + InnerProduct(self.n_X,grad(id_X).Trace()*grad(H_test).Trace())*ds
+            rhs += InnerProduct(grad(id_X).Trace(),grad(self.n_X).Trace())*H_test*ds \
+                + InnerProduct(self.n_X,grad(id_X).Trace()*grad(H_test).Trace())*ds
             lhs = BilinearForm(self.fes)
             lhs += H_trial*H_test*ds
             lhs.Assemble()
@@ -147,7 +149,7 @@ class LapVDNMCF_v2():
             self.H_X.vec.data = lhs.mat.Inverse(inverse='umfpack')*rhs.vec
         elif opt == 'Interp':
             self.H_X = GridFunction(self.fes)
-            self.H_X.Interpolate(-Trace(specialcf.Weingarten(3)),definedon=self.mesh.Boundaries('.*'))
+            self.H_X.Set(-Trace(specialcf.Weingarten(3)),definedon=self.mesh.Boundaries('.*'))
         elif opt == 'BGN':
             H_trial, H_test = self.fes.TnT()
             self.H_X = GridFunction(self.fes)
@@ -184,7 +186,7 @@ class LapVDNMCF_v2():
             print('Now Reinit time is {}'.format(self.t))
             self.Hold.vec.data  = self.H_X.vec
             self.nuold.vec.data = self.n_X.vec
-            self.LapvSet()
+            # self.LapvSet()
 
     def IniWithScale(self,scale):
         # total scale
@@ -227,7 +229,8 @@ class LapVDNMCF_v2():
         kappa , H , nu, v = self.fesMix.TrialFunction()
         kappat, Ht, nut, vt= self.fesMix.TestFunction()
 
-        vT = self.vold - self.nuold*InnerProduct(self.vold,self.nuold)/InnerProduct(self.nuold,self.nuold)
+        vT = self.vold 
+        # - self.nuold*InnerProduct(self.vold,self.nuold)/InnerProduct(self.nuold,self.nuold)
         ## Weingarten Map A = grad n
         A = grad(self.nuold).Trace()
         A = A.trans
@@ -331,3 +334,5 @@ class LapVDNMCF_v2():
         n_mat = pos_transformer(self.nuold,dim=3)
         unit_n_mat = n_mat/(np.linalg.norm(n_mat,axis=1)[:,None])
         self.nuold.vec.data = BaseVector(unit_n_mat.flatten('F'))
+        
+LapVDNMCF_v2 = MCF_MDR

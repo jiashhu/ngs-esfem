@@ -270,6 +270,70 @@ def GetRotMesh(CurveFunc,msize,T_min=-np.pi/2,T_max=np.pi/2,axis=Z,is_close=Fals
                 perfstepsend=ngm.MeshingStep.MESHSURFACE))
     return mesh
 
+def GetTanhPinchedSpheroidMesh(msize,
+                               a=1.0, c=3.0,
+                               beta=3.0,
+                               n=200,
+                               T_min=-np.pi/2, T_max=np.pi/2,
+                               axis=X,
+                               tol=1e-4):
+    """
+    Generate a rotational surface mesh by revolving a tanh-shaped x-z curve.
+
+    Curve in (x,z)-plane is defined by:
+        x(phi) = a*cos(phi)
+        z(phi) = c*tanh(beta*sin(phi))/tanh(beta)
+
+    Then we return points as (z, 0, x) so that revolving around x-axis (axis=X)
+    produces a "tanh-pinched" (flatter near equator) prolate/oblate spheroid-like shape.
+
+    Parameters
+    ----------
+    msize : float
+        Max mesh size (GenerateMesh maxh).
+    a : float
+        Radius scale in the "equator" direction (via x(phi)=a*cos(phi)).
+    c : float
+        Half-length in the axis direction (controls z-range).
+    beta : float
+        Pinching/flattening parameter; larger beta => stronger tanh saturation.
+    n : int
+        Number of samples along the generating curve.
+    T_min, T_max : float
+        Parameter range for phi.
+    axis : netgen.occ direction (e.g. X, Y, Z)
+        Axis of revolution.
+    tol : float
+        Tolerance for spline approximation.
+
+    Returns
+    -------
+    mesh : netgen.meshing.Mesh
+        Surface mesh of the revolved shape.
+    """
+    if beta <= 0:
+        raise ValueError("beta must be > 0")
+    if n < 10:
+        raise ValueError("n too small")
+
+    def CurveFunc(phi):
+        s = np.sin(phi)
+        z = c * np.tanh(beta * s) / np.tanh(beta)
+        x = a * np.cos(phi)
+        return (z, 0.0, x)  # your convention
+
+    phis = np.linspace(T_min, T_max, n)
+    pnts = [CurveFunc(phi) for phi in phis]
+
+    spline = SplineApproximation(pnts, tol=tol)
+    face = Face(Wire([spline]))
+    solid = face.Revolve(Axis((0, 0, 0), axis), 360)
+
+    geo = OCCGeometry(solid)
+    mesh = Mesh(geo.GenerateMesh(maxh=msize, perfstepsend=ngm.MeshingStep.MESHSURFACE))
+    return mesh
+
+
 # MyRBC_Obj = RBC_Rot_Obj(a=0.4,b=1,c=2,N_Spline=9)
 # MyRBC_Obj.Generate_Mesh(maxh=0.2,order=1)
 # mesh = MyRBC_Obj.mesh

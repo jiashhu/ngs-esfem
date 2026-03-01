@@ -1,11 +1,11 @@
-from ..mcf_mdr import LapVDNMCF_v2
+from ..mcf_mdr import MCF_MDR
 from ngsolve import *
 from geometry import Param2dRot
 from es_utils import pos_transformer
 from esfem.ale import VtkOutBnd
 from ..bgn import BGN_MCF
 
-class DumbbellLapVMCF(LapVDNMCF_v2):
+class DumbbellLapVMCF(MCF_MDR):
     def __init__(self, mymesh, Geo_Rot_Obj:Param2dRot, T=0.0001, dt=0.0001, order=1, BDForder=1, reset_opt='Rel'):
         super().__init__(mymesh, T, dt, order, BDForder)
         self.Dumbbell2d = Geo_Rot_Obj

@@ -75,7 +75,8 @@ class ParamSurface:
             J = np.array(self.jacobian_func(phi_values, psi_values))
 
             # Gradient: (n, 2)
-            grad_f = 2 * np.einsum('nij,ni->nj', J, residuals)
+            # grad_f = 2 * np.einsum('nij,ni->nj', J, residuals)
+            grad_f = 2 * np.einsum('jik,kj->ki', J, residuals)
 
             # Hessians: (n, 2, 2)
             hessian_f = self.hessian_func(

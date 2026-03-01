@@ -314,3 +314,74 @@ class FlowerCurve(Param1dCurve):
     def __init__(self, T_max=2 * np.pi, theta_dis=None, a=0.65, b=7) -> None:
         Param = [(a*sym.sin(b*phi)+1)*sym.cos(phi), (a*sym.sin(b*phi)+1)*sym.sin(phi)]
         super().__init__(Param = Param, T_max = T_max, theta_dis = theta_dis)
+        
+        
+class TanhCapsuleSpline(Param1dSpline):
+    """
+    Parametric curve (in x-z plane, then embedded in 3D as (z,0,x) by convention):
+
+        x(phi) = a*cos(phi)
+        z(phi) = c*tanh(beta*sin(phi))/tanh(beta)
+
+    Domain: phi in [T_min, T_max] (often [0, 2*pi] or [-pi, pi]).
+    """
+
+    def __init__(self, a, c, beta, N_Spline, T_min, T_max, eps, is_close) -> None:
+        self.a, self.c, self.beta = a, c, beta
+        self.T_min, self.T_max = T_min, T_max
+
+        # sympy expressions
+        self.Xparam = c * sym.tanh(beta * sym.sin(phi)) / sym.tanh(beta)  # z(phi)
+        self.Yparam = a * sym.cos(phi)  # x(phi)
+
+        self.Param = [self.Xparam, self.Yparam]
+
+        super().__init__(
+            Param=self.Param,
+            T_min=self.T_min,
+            T_max=self.T_max,
+            N_Spline=N_Spline,
+            eps=eps,
+            c_tag=is_close
+        )
+
+    def get_param(self, Coords):
+        """
+        Attempt to recover phi from points Coords.
+
+        Expected Coords columns:
+          - either (x,z) in 2D: shape (n,2)
+          - or (z,0,x) in 3D: shape (n,3) using your convention
+
+        Returns phi in [-pi, pi] via arctan2 of (sin, cos).
+        """
+        Coords = np.asarray(Coords)
+
+        if Coords.shape[1] == 2:
+            # assume (x,z)
+            z = Coords[:, 0]
+            x = Coords[:, 1]
+        elif Coords.shape[1] == 3:
+            # assume (z,0,x)
+            x = Coords[:, 0]
+            z = Coords[:, 2]
+        else:
+            raise ValueError("Coords must be (n,2) or (n,3).")
+
+        # Recover cos(phi) from x = a*cos(phi)
+        cosphi = x / self.a
+
+        # Recover sin(phi) (up to sign) from z = c*tanh(beta*sin(phi))/tanh(beta)
+        # Let u = tanh(beta*sin(phi)) = (z/c)*tanh(beta)
+        u = (z / self.c) * np.tanh(self.beta)
+
+        # numerical safety: clip into (-1,1) for arctanh
+        u = np.clip(u, -1.0 + 1e-14, 1.0 - 1e-14)
+
+        # beta*sin(phi) = artanh(u)  => sin(phi) = artanh(u)/beta
+        sinphi = np.arctanh(u) / self.beta
+
+        # Now combine to get phi robustly
+        phi_np = np.arctan2(sinphi, cosphi)
+
+        return phi_np

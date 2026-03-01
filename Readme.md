@@ -98,6 +98,15 @@ These notebooks can be viewed as a **geometry and mesh generation gallery**, and
 `param_surface` 中的 `ParamSurface` 类用于生成 **参数化的二维曲面**。[说明参考](geometry/tutorial/ParamSurface.ipynb)
 
 
+## Tutorials
+
+Notebook 路径：`/work/ngs-esfem/tutorial`
+
+- `Function_Set.ipynb`
+- `ParamSurface.ipynb`
+- `PFEM-Dumbbell-Dziuk-MCF.ipynb`
+- `PFEM-Dumbbell-MDR-MCF.ipynb`
+- `PFEM-Tanh-MDR-MCF.ipynb`
 
 ---
 
